@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ДИМ МОРОЗИВА - Натуральне морозиво з любов'ю</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* --- Basic Styles --- */
+    :root {
+      --bg-color: #fdfaf6;
+      --text-color: #3a3a3a;
+      --primary-color: #a7c7e7; /* Pastel Blue */
+      --secondary-color: #f0e6d2; /* Light Cream */
+      --darker-text: #5c5c5c;
+      --footer-bg: #f5f5f5;
+      --button-bg: #89b0d9;
+      --button-hover-bg: #7c9fbf;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h2, h3 {
+      font-weight: 600;
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    h2 {
+      font-size: 2.2rem;
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      color: var(--darker-text);
+    }
+
+    p {
+      margin-bottom: 1rem;
+    }
+
+    /* --- Header --- */
+    .header {
+      background-color: #ffffff;
+      padding: 20px 0;
+      text-align: center;
+      border-bottom: 2px solid var(--secondary-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header .logo {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .nav {
+      margin-top: 15px;
+    }
+
+    .nav a {
+      color: var(--darker-text);
+      text-decoration: none;
+      margin: 0 15px;
+      font-weight: 600;
+      transition: color 0.3s;
+    }
+
+    .nav a:hover {
+      color: var(--primary-color);
+    }
+
+    /* --- Main Content Sections --- */
+    .section {
+      padding: 60px 20px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .section:last-of-type {
+      border-bottom: none;
+    }
+
+    .about-us p {
+      max-width: 750px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+    /* --- Products Section --- */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      margin-top: 30px;
+    }
+
+    .product-card {
+      background: #fff;
+      border: 1px solid var(--secondary-color);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .product-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+
+    .product-card h4 {
+      font-size: 1.3rem;
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: var(--primary-color);
+    }
+
+    /* --- Gemini API Section --- */
+    #gemini-ideas {
+      background-color: #fff;
+    }
+    .idea-generator-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 50px;
+      margin-top: 2rem;
+    }
+    @media (min-width: 768px) {
+      .idea-generator-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .gemini-feature {
+      display: flex;
+      flex-direction: column;
+    }
+    .gemini-feature label {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--darker-text);
+    }
+    .gemini-feature input, .gemini-feature select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-family: 'Montserrat', sans-serif;
+    }
+    .gemini-button {
+      background-color: var(--button-bg);
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .gemini-button:hover {
+      background-color: var(--button-hover-bg);
+    }
+    .gemini-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .result-box {
+      margin-top: 20px;
+      padding: 20px;
+      background-color: var(--bg-color);
+      border: 1px dashed var(--primary-color);
+      border-radius: 8px;
+      min-height: 150px;
+      white-space: pre-wrap;
+      line-height: 1.8;
+      position: relative;
+    }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--button-bg);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      margin-top: -15px;
+      margin-left: -15px;
+      display: none; /* Hidden by default */
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+
+    /* --- Contacts Section --- */
+    .contact-details {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    .contact-item {
+      flex-basis: 250px;
+    }
+
+    .contact-item h4 {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      color: var(--darker-text);
+    }
+
+    .contact-item a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .contact-item a:hover {
+      text-decoration: underline;
+    }
+
+    .map-container {
+      margin-top: 40px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .map-container iframe {
+      border: 0;
+      width: 100%;
+      height: 400px;
+    }
+
+    /* --- Legal Sections --- */
+    .legal-section {
+      background-color: #fff;
+      padding: 40px 20px;
+    }
+    .legal-section h2 {
+      text-align: left;
+    }
+    .legal-section p, .legal-section li {
+      font-size: 0.9rem;
+      color: var(--darker-text);
+    }
+
+    /* --- Footer --- */
+    .footer {
+      background-color: var(--footer-bg);
+      color: #777;
+      text-align: center;
+      padding: 30px 20px;
+    }
+
+    .footer p {
+      margin: 0 0 10px 0;
+      font-size: 0.9rem;
+    }
+
+    .footer-links a {
+      color: #777;
+      text-decoration: none;
+      margin: 0 10px;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- Header with Logo and Navigation -->
+<header class="header">
+  <a href="#" class="logo">ДИМ МОРОЗИВА</a>
+  <nav class="nav">
+    <a href="#about">Про нас</a>
+    <a href="#products">Асортимент</a>
+    <a href="#gemini-ideas">✨ Ідеї від Gemini</a>
+    <a href="#where-to-buy">Де купити</a>
+    <a href="#contacts">Контакти</a>
+  </nav>
+</header>
+
+<main>
+  <!-- About Us Section -->
+  <section id="about" class="section about-us container">
+    <h2>Наша Історія та Цінності</h2>
+    <p>
+      "ДИМ МОРОЗИВА" народився з мрії створювати продукт, який повертає у дитинство. Ми — локальний виробник, що створює натуральне морозиво з найсвіжіших інгредієнтів. Наша філософія проста: використовувати лише якісні місцеві продукти — фермерське молоко, свіжі ягоди та справжній шоколад — для створення неймовірного смаку.
+    </p>
+    <p>
+      Ми віримо в чесність, прозорість та любов до своєї справи. Кожна партія нашого морозива проходить ретельний контроль якості на власному сучасному виробництві. Ми пишаємося нашою мережею партнерських точок продажу, де ви завжди можете знайти наше морозиво.
+    </p>
+  </section>
+
+  <!-- Products Section -->
+  <section id="products" class="section container">
+    <h2>Наш Асортимент</h2>
+    <div class="product-grid">
+      <div class="product-card">
+        <h4>Класичний Пломбір</h4>
+        <p>Ніжний вершковий смак, створений за традиційним рецептом. Справжня класика, що ніколи не виходить з моди.</p>
+      </div>
+      <div class="product-card">
+        <h4>Шоколадний Трюфель</h4>
+        <p>Насичений смак бельгійського шоколаду з легкою гірчинкою. Ідеально для справжніх гурманів.</p>
+      </div>
+      <div class="product-card">
+        <h4>Ягідний Сорбет</h4>
+        <p>Освіжаючий вибух смаку лісових ягід. Не містить лактози та створений на основі натурального пюре.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gemini API Section -->
+  <section id="gemini-ideas" class="section container">
+    <h2>✨ Згенеруй Ідею з Gemini</h2>
+    <p style="text-align: center; max-width: 700px; margin: 0 auto 30px auto;">
+      Відчуйте себе частиною нашої команди! Використовуйте силу штучного інтелекту Gemini, щоб створити новий смак морозива або знайти ідеальний рецепт для десерту.
+    </p>
+    <div class="idea-generator-grid">
+      <!-- Feature 1: Flavor Generator -->
+      <div class="gemini-feature">
+        <h3>Придумай новий смак</h3>
+        <label for="ingredients-input">Введіть 1-3 інгредієнти (наприклад: м'ята, малина, білий шоколад)</label>
+        <input type="text" id="ingredients-input" placeholder="Наприклад: лаванда, мед">
+        <button id="generate-flavor-btn" class="gemini-button">✨ Згенерувати смак</button>
+        <div id="flavor-result" class="result-box">
+          <div class="loader"></div>
+          <p>Тут з'явиться ваша унікальна ідея...</p>
+        </div>
+      </div>
+      <!-- Feature 2: Recipe Generator -->
+      <div class="gemini-feature">
+        <h3>Створи рецепт десерту</h3>
+        <label for="flavor-select">Виберіть наше морозиво за основу</label>
+        <select id="flavor-select">
+          <option>Класичний Пломбір</option>
+          <option>Шоколадний Трюфель</option>
+          <option>Ягідний Сорбет</option>
+        </select>
+        <button id="generate-recipe-btn" class="gemini-button">✨ Згенерувати рецепт</button>
+        <div id="recipe-result" class="result-box">
+          <div class="loader"></div>
+          <p>Тут з'явиться ваш ідеальний рецепт...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Where to Buy Section -->
+  <section id="where-to-buy" class="section container">
+    <h2>Де Купити</h2>
+    <p style="text-align: center; max-width: 600px; margin: 0 auto 30px auto;">
+      Шукайте наше морозиво у затишних кав'ярнях та крафтових магазинах вашого міста. Ми постійно розширюємо мережу партнерів.
+    </p>
+    <div class="product-grid">
+      <div class="product-card"><h4>Кав'ярня "Затишок"</h4><p>вул. Соборна, 15</p></div>
+      <div class="product-card"><h4>Еко-крамниця "Зелена полиця"</h4><p>просп. Свободи, 21</p></div>
+      <div class="product-card"><h4>Ресторан "Сімейна вечеря"</h4><p>вул. Шевченка, 8</p></div>
+    </div>
+  </section>
+
+  <!-- Contacts Section -->
+  <section id="contacts" class="section container">
+    <h2>Наші Контакти</h2>
+    <div class="contact-details">
+      <div class="contact-item">
+        <h4>Адреса виробництва</h4>
+        <p>провулок Паркова, буд. 3,<br>Володимир-Волинський, 101809,<br>Україна</p>
+      </div>
+      <div class="contact-item">
+        <h4>Телефон для зв'язку</h4>
+        <p><a href="tel:+380122382563">+38 (012) 238-25-63</a></p>
+      </div>
+      <div class="contact-item">
+        <h4>Електронна пошта</h4>
+        <p><a href="mailto:info@dymmorozyva.com">info@dymmorozyva.com</a></p>
+      </div>
+    </div>
+
+    <!-- Google Map -->
+    <div class="map-container">
+      <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d40858.33792089429!2d24.28389182373007!3d50.84922116238615!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4724f10a1a5b8971%3A0x1c6338606c406836!2z0JLQvtC70L7QtNC40LzQuNGAINGLLdCy0L7Qu9GL0L3RjNC60LgsINCS0L7Qu9GL0L3RjNC60LAsINCS0L7Qu9GL0L3RjNC60YHRjyDQvtCx0LvQsNGB0YLRjA!5e0!3m2!1suk!2sua!4v1693596843215!5m2!1suk!2sua" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </section>
+
+  <!-- Legal Sections -->
+  <section id="privacy-policy" class="legal-section container">
+    <h2>Політика Конфіденційності</h2>
+    <p>Дата останнього оновлення: 01.08.2025</p>
+    <p>Ми, ТОВ "ДИМ МОРОЗИВА", з повагою ставимося до вашої конфіденційності та прагнемо захищати ваші персональні дані. Ця Політика конфіденційності пояснює, як ми збираємо, використовуємо, розкриваємо та захищаємо вашу інформацію, коли ви відвідуєте наш веб-сайт.</p>
+    <p>Ми збираємо інформацію, яку ви нам надаєте безпосередньо, наприклад, коли ви зв'язуєтеся з нами через електронну пошту. Ми також можемо збирати анонімні дані через взаємодію з інтерактивними функціями на основі API. Ми не передаємо ваші дані третім особам без вашої згоди, за винятком випадків, передбачених законодавством України.</p>
+  </section>
+
+  <section id="terms-of-service" class="legal-section container">
+    <h2>Умови Використання</h2>
+    <p>Дата останнього оновлення: 01.08.2025</p>
+    <p>Використовуючи цей веб-сайт (далі – "Сайт"), ви погоджуєтесь з цими Умовами використання. Якщо ви не погоджуєтесь з цими умовами, будь ласка, не використовуйте наш Сайт.</p>
+    <p>Вся інформація, розміщена на Сайті, включаючи тексти, логотипи та дизайн, є власністю ТОВ "ДИМ МОРОЗИВА" і захищена законом про авторське право. Результати, згенеровані інтерактивними інструментами, надаються для натхнення та особистого використання.</p>
+  </section>
+
+</main>
+
+<!-- Footer with EDRPOU and Legal Links -->
+<footer class="footer">
+  <p>ТОВ "ДИМ МОРОЗИВА" &copy; 2025. Всі права захищено.</p>
+  <p>ЄДРПОУ: 32432161</p>
+  <div class="footer-links">
+    <a href="#privacy-policy">Політика Конфіденційності</a>
+    <a href="#terms-of-service">Умови Використання</a>
+  </div>
+</footer>
+
+<script>
+  // --- Gemini API Integration ---
+  const generateFlavorBtn = document.getElementById('generate-flavor-btn');
+  const generateRecipeBtn = document.getElementById('generate-recipe-btn');
+  const ingredientsInput = document.getElementById('ingredients-input');
+  const flavorSelect = document.getElementById('flavor-select');
+  const flavorResultBox = document.getElementById('flavor-result');
+  const recipeResultBox = document.getElementById('recipe-result');
+
+  // Main function to call Gemini API
+  async function callGeminiAPI(prompt, resultBox, button) {
+    const loader = resultBox.querySelector('.loader');
+    const resultParagraph = resultBox.querySelector('p');
+
+    // Show loader and disable button
+    loader.style.display = 'block';
+    resultParagraph.innerHTML = '';
+    button.disabled = true;
+
+    const apiKey = ""; // This will be handled by the environment
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+    const payload = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }]
+    };
+
+    let success = false;
+    let attempt = 0;
+    const maxAttempts = 3;
+
+    while (!success && attempt < maxAttempts) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+          const text = result.candidates[0].content.parts[0].text;
+          resultParagraph.innerHTML = text.replace(/\n/g, '<br>');
+          success = true;
+        } else {
+          throw new Error("Invalid response structure from API.");
+        }
+
+      } catch (error) {
+        console.error('Error calling Gemini API:', error);
+        attempt++;
+        if (attempt >= maxAttempts) {
+          resultParagraph.innerHTML = 'На жаль, сталася помилка. Спробуйте ще раз пізніше.';
+        } else {
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+        }
+      }
+    }
+
+    // Hide loader and enable button
+    loader.style.display = 'none';
+    button.disabled = false;
+  }
+
+  // Event listener for flavor generation
+  generateFlavorBtn.addEventListener('click', () => {
+    const ingredients = ingredientsInput.value.trim();
+    if (!ingredients) {
+      alert('Будь ласка, введіть хоча б один інгредієнт.');
+      return;
+    }
+    const prompt = `Ти — креативний технолог українського бренду морозива "ДИМ МОРОЗИВА". Бренд пишається натуральними, локальними інгредієнтами. Користувач запропонував такі інгредієнти: "${ingredients}". Створи поетичну та привабливу назву для нового сорту морозива на основі цих інгредієнтів, а також напиши короткий, звабливий опис (2-3 речення). Назва та опис мають бути українською мовою. Відформатуй відповідь так:\n\n**Назва:** [Назва смаку]\n**Опис:** [Опис смаку]`;
+    callGeminiAPI(prompt, flavorResultBox, generateFlavorBtn);
+  });
+
+  // Event listener for recipe generation
+  generateRecipeBtn.addEventListener('click', () => {
+    const selectedFlavor = flavorSelect.value;
+    const prompt = `Ти — шеф-кондитер українського бренду морозива "ДИМ МОРОЗИВА". Створи простий та смачний рецепт десерту, головним інгредієнтом якого є морозиво "${selectedFlavor}". Рецепт має бути легким для виконання в домашніх умовах. Рецепт має бути українською мовою. Відформатуй відповідь так:\n\n### [Назва рецепту]\n\n**Опис:** [Короткий опис рецепту]\n\n**Інгредієнти:**\n- [Інгредієнт 1]\n- [Інгредієнт 2]\n- ...\n\n**Інструкція:**\n1. [Крок 1]\n2. [Крок 2]\n3. ...`;
+    callGeminiAPI(prompt, recipeResultBox, generateRecipeBtn);
+  });
+</script>
+</body>
+</html>
+
+</body>
+</html>
