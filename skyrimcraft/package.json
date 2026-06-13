@@ -1,0 +1,54 @@
+{
+  "name": "skyrimcraft",
+  "version": "1.0.0",
+  "description": "SkyrimCraft — воксельна RPG у стилі Skyrim × Minecraft (Electron desktop)",
+  "author": "SkyrimCraft",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.skyrimcraft.game",
+    "productName": "SkyrimCraft",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SkyrimCraft"
+    },
+    "portable": {
+      "artifactName": "SkyrimCraft-${version}-portable.exe"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Game"
+    }
+  }
+}

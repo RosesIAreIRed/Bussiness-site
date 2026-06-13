@@ -1,0 +1,116 @@
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+html,body { width:100%; height:100%; overflow:hidden; background:#0a0d14;
+  font-family:'Trebuchet MS','Segoe UI',sans-serif; cursor:default; }
+#game { display:block; }
+
+/* ---------------- HUD ---------------- */
+#hud { position:fixed; inset:0; pointer-events:none; color:#e8e2d0; z-index:10; }
+
+.bars { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:14px; align-items:flex-end; }
+.barwrap { position:relative; }
+.bar { width:180px; height:13px; background:rgba(0,0,0,.55); border:1px solid #4a4233;
+  border-radius:7px; overflow:hidden; box-shadow:0 0 8px #000, inset 0 0 6px #000; }
+.bar > i { display:block; height:100%; width:100%; transition:width .15s linear; }
+#hpFill { background:linear-gradient(#e0594b,#7b1f15); box-shadow:inset 0 1px 0 #ff9d8e88; }
+#mpFill { background:linear-gradient(#3aa0e0,#1a4f73); box-shadow:inset 0 1px 0 #9fd6ff88; }
+#spFill { background:linear-gradient(#37c46b,#176638); box-shadow:inset 0 1px 0 #a6f5c388; }
+#hpTxt { position:absolute; left:50%; top:-1px; transform:translateX(-50%); font-size:10px;
+  color:#fff; text-shadow:0 1px 2px #000; }
+
+#crosshair { position:absolute; top:50%; left:50%; width:20px; height:20px; transform:translate(-50%,-50%); opacity:.65; }
+#crosshair::before,#crosshair::after { content:''; position:absolute; background:#fff; box-shadow:0 0 2px #000; }
+#crosshair::before { left:50%; top:2px; bottom:2px; width:2px; transform:translateX(-50%); }
+#crosshair::after { top:50%; left:2px; right:2px; height:2px; transform:translateY(-50%); }
+
+#topleft { position:absolute; top:14px; left:18px; text-shadow:0 1px 3px #000; }
+#topleft .lvl { font-size:21px; font-weight:bold; color:#e8c66a; letter-spacing:1px; }
+#topleft .xpbar { width:210px; height:6px; background:rgba(0,0,0,.5); border:1px solid #4a4233; margin-top:5px; border-radius:4px; overflow:hidden; }
+#topleft .xpbar > i { display:block; height:100%; width:0; background:linear-gradient(90deg,#e8c66a,#fff3c8); transition:width .2s; }
+#goldRow { margin-top:8px; font-size:15px; color:#e8c66a; }
+#perkRow { margin-top:3px; font-size:12px; color:#9ec4e8; }
+#perkRow .hint { color:#6a7689; font-size:11px; }
+
+#compass { position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:20px;
+  letter-spacing:4px; text-shadow:0 0 6px #000; color:#d6c894; font-weight:bold;
+  padding:4px 18px; border-bottom:2px solid #4a423388; }
+
+#clock { position:absolute; bottom:14px; right:18px; font-size:13px; color:#cdbf94; text-shadow:0 1px 3px #000; }
+
+#questbox { position:absolute; top:60px; right:16px; width:240px; background:rgba(10,8,4,.5);
+  border:1px solid #4a4233; border-radius:6px; padding:10px 12px; font-size:13px;
+  text-shadow:0 1px 2px #000; backdrop-filter:blur(2px); }
+#questbox h4 { color:#e8c66a; font-size:11px; letter-spacing:1.5px; margin-bottom:7px; text-transform:uppercase; }
+#questbox .obj { color:#cfc8b4; margin:3px 0; }
+#questbox .obj.done { color:#6a6151; text-decoration:line-through; }
+
+.hotbar { position:absolute; bottom:42px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+.slot { width:50px; height:50px; background:rgba(0,0,0,.5); border:2px solid #4a4233; border-radius:7px;
+  display:flex; align-items:center; justify-content:center; font-size:24px; position:relative; transition:.12s; }
+.slot.active { border-color:#e8c66a; box-shadow:0 0 12px #e8c66a99; transform:translateY(-4px); }
+.slot small { position:absolute; bottom:1px; right:4px; font-size:9px; color:#aaa; }
+.slot .nm { position:absolute; top:-20px; left:50%; transform:translateX(-50%); font-size:11px;
+  white-space:nowrap; color:#e8c66a; opacity:0; transition:.12s; text-shadow:0 1px 2px #000; }
+.slot.active .nm { opacity:1; }
+
+#shoutCd { position:absolute; bottom:100px; left:50%; transform:translateX(-50%); font-size:13px;
+  color:#9ec4e8; text-shadow:0 0 6px #000; }
+
+#toast { position:absolute; top:120px; left:50%; transform:translateX(-50%); text-align:center;
+  font-size:24px; color:#e8c66a; text-shadow:0 2px 8px #000; opacity:0; transition:opacity .4s; font-weight:bold; letter-spacing:1px; }
+#subtitle { position:absolute; bottom:150px; left:50%; transform:translateX(-50%); font-size:16px;
+  color:#cfc8b4; font-style:italic; text-shadow:0 1px 5px #000; opacity:0; transition:opacity .4s;
+  text-align:center; max-width:80%; }
+
+#dmgFlash { position:fixed; inset:0; opacity:0; pointer-events:none; z-index:9; transition:opacity .12s;
+  background:radial-gradient(transparent 52%, rgba(150,0,0,.6)); }
+#vignette { position:fixed; inset:0; pointer-events:none; z-index:8;
+  box-shadow:inset 0 0 220px rgba(0,0,0,.6); }
+
+#bossbar { position:absolute; top:58px; left:50%; transform:translateX(-50%); width:420px; display:none; text-align:center; }
+#bossbar .name { color:#e08070; font-size:15px; letter-spacing:3px; text-shadow:0 0 8px #000; margin-bottom:4px; }
+#bossbar .b { height:11px; background:rgba(0,0,0,.6); border:1px solid #5a2018; border-radius:6px; overflow:hidden; }
+#bossbar .b > i { display:block; height:100%; width:100%; background:linear-gradient(#e08070,#7b1f15); transition:width .25s; }
+
+/* ---------------- Overlays ---------------- */
+.overlay { position:fixed; inset:0; background:rgba(4,6,10,.85); z-index:50; display:flex;
+  align-items:center; justify-content:center; color:#e8e2d0;
+  background-image:radial-gradient(circle at 50% 30%, rgba(40,70,110,.25), transparent 60%); }
+.panel { text-align:center; max-width:660px; padding:34px 44px; }
+.logo { font-size:60px; font-weight:bold; letter-spacing:7px; color:#cdbf94;
+  text-shadow:0 0 18px #000,0 0 48px #3a6a9a; margin-bottom:4px; }
+.logo span { color:#e8c66a; }
+.logo.small { font-size:40px; }
+.logo.dead { color:#c0392b; text-shadow:0 0 22px #000,0 0 44px #c0392b; }
+.logo.win { color:#e8c66a; text-shadow:0 0 22px #000,0 0 50px #e8c66a; }
+.panel .sub { color:#8fa9c4; letter-spacing:4px; margin-bottom:26px; font-size:13px; }
+.panel p { color:#bcb6a4; line-height:1.7; margin-bottom:10px; font-size:14px; }
+.panel p b { color:#e8c66a; }
+.panel .goal { color:#8fa9c4; margin-top:6px; }
+.panel .keys { display:grid; grid-template-columns:auto auto auto auto; gap:5px 14px; justify-content:center; margin:20px auto; font-size:12.5px; color:#cfc8b4; align-items:center; }
+.panel .keys b { color:#e8c66a; background:rgba(0,0,0,.4); padding:2px 7px; border-radius:4px; border:1px solid #4a4233; }
+
+.btn { pointer-events:auto; cursor:pointer; margin-top:18px; background:linear-gradient(#2a2418,#16130c);
+  border:1px solid #6a5d3c; color:#e8c66a; padding:14px 40px; font-size:18px; letter-spacing:2px;
+  border-radius:6px; text-transform:uppercase; transition:.15s; display:block; margin-left:auto; margin-right:auto; }
+.btn:hover { background:linear-gradient(#3a3322,#221d12); box-shadow:0 0 16px #e8c66a66; transform:translateY(-1px); }
+.btn.small { font-size:14px; padding:10px 26px; margin-top:12px; }
+
+.hidden { display:none !important; }
+
+/* loading */
+.loadwrap { text-align:center; }
+#loading { color:#cdbf94; letter-spacing:3px; margin-top:14px; font-size:14px; }
+.loadbar { width:280px; height:6px; margin:16px auto 0; background:rgba(0,0,0,.5); border:1px solid #4a4233; border-radius:4px; overflow:hidden; }
+.loadbar > i { display:block; height:100%; width:0; background:linear-gradient(90deg,#e8c66a,#fff3c8); transition:width .25s; }
+
+/* skills */
+.panel.skills { max-width:560px; }
+.panel.skills h2 { font-size:30px; color:#cdbf94; letter-spacing:3px; margin-bottom:4px; text-shadow:0 0 12px #000; }
+.perkgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:22px 0; }
+.perk { pointer-events:auto; cursor:pointer; background:rgba(0,0,0,.4); border:1px solid #4a4233;
+  border-radius:8px; padding:12px; text-align:left; transition:.12s; }
+.perk:hover { border-color:#e8c66a; box-shadow:0 0 10px #e8c66a44; }
+.perk.maxed { opacity:.55; cursor:default; }
+.perk .pn { color:#e8c66a; font-weight:bold; font-size:14px; }
+.perk .pd { color:#bcb6a4; font-size:12px; margin-top:3px; line-height:1.4; }
+.perk .pl { color:#8fa9c4; font-size:11px; margin-top:5px; }

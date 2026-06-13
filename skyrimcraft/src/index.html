@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyrimCraft</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- ===================== HUD ===================== -->
+<div id="hud">
+  <div id="compass"><span id="compassDir">Пн</span></div>
+
+  <div id="topleft">
+    <div class="lvl">Рівень <span id="lvlNum">1</span></div>
+    <div class="xpbar"><i id="xpFill"></i></div>
+    <div id="goldRow">💰 <span id="goldNum">0</span></div>
+    <div id="perkRow">✦ Очки навичок: <span id="perkNum">0</span> <span class="hint">(P — навички)</span></div>
+  </div>
+
+  <div id="bossbar">
+    <div class="name">СТАРОДАВНІЙ ДРАКОН</div>
+    <div class="b"><i id="bossFill"></i></div>
+  </div>
+
+  <div id="questbox">
+    <h4>Завдання</h4>
+    <div id="questObjs"></div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="toast"></div>
+  <div id="subtitle"></div>
+  <div id="shoutCd"></div>
+
+  <div class="hotbar" id="hotbar"></div>
+
+  <div class="bars">
+    <div class="barwrap"><div class="bar"><i id="mpFill"></i></div></div>
+    <div class="barwrap"><div class="bar"><i id="hpFill"></i></div><span id="hpTxt"></span></div>
+    <div class="barwrap"><div class="bar"><i id="spFill"></i></div></div>
+  </div>
+
+  <div id="clock">☀️ <span id="clockTxt">День</span></div>
+</div>
+
+<div id="dmgFlash"></div>
+<div id="vignette"></div>
+
+<!-- ===================== Skills panel ===================== -->
+<div class="overlay hidden" id="skillsPanel">
+  <div class="panel skills">
+    <h2>Дерево навичок</h2>
+    <p class="sub">Очок доступно: <b id="perkAvail">0</b></p>
+    <div class="perkgrid" id="perkGrid"></div>
+    <button class="btn small" id="closeSkills">Закрити (P)</button>
+  </div>
+</div>
+
+<!-- ===================== Start ===================== -->
+<div class="overlay" id="startMenu">
+  <div class="panel">
+    <div class="logo">SKYRIM<span>CRAFT</span></div>
+    <div class="sub">ДРАКОНОБІЙ У СВІТІ КУБІВ</div>
+    <p>Ти — <b>Довакін</b>, народжений із душею дракона у воксельному світі. Видобувай, будуй,
+       володій Криком Ту'ум та знищ Стародавнього Дракона.</p>
+    <div class="keys">
+      <b>W A S D</b><span>рух</span>
+      <b>Миша</b><span>огляд</span>
+      <b>Пробіл</b><span>стрибок</span>
+      <b>Shift</b><span>біг</span>
+      <b>ЛКМ</b><span>атака / ламати блок</span>
+      <b>ПКМ</b><span>ставити блок / блокувати</span>
+      <b>1–6</b><span>предмет</span>
+      <b>Q</b><span>Крик «ФУС РО ДА»</span>
+      <b>F</b><span>магія вогню</span>
+      <b>R</b><span>магія льоду</span>
+      <b>E</b><span>взаємодія</span>
+      <b>P</b><span>навички</span>
+      <b>F11</b><span>повний екран</span>
+    </div>
+    <p class="goal">Мета: дійди до 3 рівня, активуй вівтар у вежі (центр) і здолай дракона.</p>
+    <button class="btn" id="startBtn">Почати пригоду</button>
+  </div>
+</div>
+
+<!-- ===================== Pause ===================== -->
+<div class="overlay hidden" id="pauseMenu">
+  <div class="panel">
+    <div class="logo small">ПАУЗА</div>
+    <button class="btn" id="resumeBtn">Продовжити</button>
+    <button class="btn small" id="quitBtn">Вийти в меню</button>
+  </div>
+</div>
+
+<!-- ===================== Death ===================== -->
+<div class="overlay hidden" id="deathPanel">
+  <div class="panel">
+    <div class="logo dead">ТИ ЗАГИНУВ</div>
+    <p id="deathMsg">Душа дракона покинула цей світ...</p>
+    <button class="btn" id="respawnBtn">Відродитись</button>
+  </div>
+</div>
+
+<!-- ===================== Victory ===================== -->
+<div class="overlay hidden" id="winPanel">
+  <div class="panel">
+    <div class="logo win">ПЕРЕМОГА</div>
+    <p>Ти поглинув душу Стародавнього Дракона! Небеса вокселів знову спокійні.<br>Довакіне, ти легенда.</p>
+    <p id="winStats" class="goal"></p>
+    <button class="btn" id="winBtn">Грати знову</button>
+  </div>
+</div>
+
+<div class="overlay" id="loadingOverlay">
+  <div class="loadwrap">
+    <div class="logo">SKYRIM<span>CRAFT</span></div>
+    <div id="loading">ГЕНЕРУЄМО СВІТ…</div>
+    <div class="loadbar"><i id="loadFill"></i></div>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
