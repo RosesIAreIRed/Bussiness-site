@@ -17,8 +17,11 @@
     <div class="lvl">Рівень <span id="lvlNum">1</span></div>
     <div class="xpbar"><i id="xpFill"></i></div>
     <div id="goldRow">💰 <span id="goldNum">0</span></div>
-    <div id="perkRow">✦ Очки навичок: <span id="perkNum">0</span> <span class="hint">(P — навички)</span></div>
+    <div id="gearRow">⚔️ <span id="gearWeapon">Залізний меч</span> · 🛡️ <span id="gearArmor">—</span></div>
+    <div id="perkRow">✦ Навички: <span id="perkNum">0</span> <span class="hint">(P)</span> · 🎒 <span class="hint">C — крафт</span></div>
   </div>
+
+  <div id="resStrip"></div>
 
   <div id="bossbar">
     <div class="name">СТАРОДАВНІЙ ДРАКОН</div>
@@ -84,12 +87,32 @@
       <b>R</b><span>магія льоду</span>
       <b>E</b><span>взаємодія</span>
       <b>P</b><span>навички</span>
+      <b>C</b><span>крафт / інвентар</span>
+      <b>G</b><span>стріляти з лука</span>
       <b>F11</b><span>повний екран</span>
     </div>
     <p class="goal">Мета: дійди до 3 рівня, активуй вівтар у вежі (центр) і здолай дракона.</p>
     <button class="btn" id="continueBtn" style="display:none">Продовжити</button>
     <button class="btn" id="startBtn">Нова пригода</button>
     <button class="btn small" id="settingsBtn">Налаштування</button>
+  </div>
+</div>
+
+<!-- ===================== Crafting ===================== -->
+<div class="overlay hidden" id="craftPanel">
+  <div class="panel craft">
+    <h2>Майстерня</h2>
+    <div class="craftcols">
+      <div class="craftcol">
+        <h3>Інвентар</h3>
+        <div id="invGrid" class="invgrid"></div>
+      </div>
+      <div class="craftcol">
+        <h3>Рецепти</h3>
+        <div id="recipeList" class="recipelist"></div>
+      </div>
+    </div>
+    <button class="btn small" id="closeCraft">Закрити (C)</button>
   </div>
 </div>
 

@@ -98,6 +98,34 @@ html,body { width:100%; height:100%; overflow:hidden; background:#0a0d14;
 .setrow input[type=range] { pointer-events:auto; width:100%; accent-color:#e8c66a; }
 .setrow span { color:#e8c66a; font-size:13px; text-align:left; }
 
+#gearRow { margin-top:3px; font-size:12px; color:#cfc8b4; }
+#gearRow span { color:#e8c66a; }
+
+/* resource strip */
+#resStrip { position:absolute; bottom:96px; left:16px; display:flex; flex-direction:column; gap:3px; }
+#resStrip .res { font-size:13px; color:#e8e2d0; text-shadow:0 1px 3px #000; background:rgba(0,0,0,.35);
+  padding:2px 8px; border-radius:5px; border:1px solid #4a423355; }
+#resStrip .res b { color:#e8c66a; }
+
+/* crafting */
+.panel.craft { max-width:760px; }
+.panel.craft h2 { font-size:30px; color:#cdbf94; letter-spacing:3px; margin-bottom:14px; text-shadow:0 0 12px #000; }
+.panel.craft h3 { font-size:13px; color:#8fa9c4; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+.craftcols { display:grid; grid-template-columns:1fr 1.3fr; gap:24px; text-align:left; }
+.invgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; align-content:start; min-height:260px; max-height:340px; overflow-y:auto; }
+.invslot { background:rgba(0,0,0,.4); border:1px solid #4a4233; border-radius:7px; aspect-ratio:1;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:22px; position:relative; }
+.invslot small { position:absolute; bottom:2px; right:4px; font-size:11px; color:#e8c66a; font-weight:bold; }
+.invslot .tip { font-size:8px; color:#9a9384; position:absolute; top:2px; left:0; right:0; text-align:center; }
+.recipelist { display:flex; flex-direction:column; gap:7px; max-height:340px; overflow-y:auto; padding-right:6px; }
+.recipe { pointer-events:auto; cursor:pointer; background:rgba(0,0,0,.4); border:1px solid #4a4233; border-radius:7px;
+  padding:8px 10px; transition:.12s; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.recipe:hover { border-color:#e8c66a; box-shadow:0 0 10px #e8c66a44; }
+.recipe.cant { opacity:.5; }
+.recipe .rn { color:#e8c66a; font-weight:bold; font-size:13px; }
+.recipe .rc { color:#bcb6a4; font-size:11px; margin-top:2px; }
+.recipe .ro { font-size:20px; }
+
 /* ---------------- Overlays ---------------- */
 .overlay { position:fixed; inset:0; background:rgba(4,6,10,.85); z-index:50; display:flex;
   align-items:center; justify-content:center; color:#e8e2d0;
