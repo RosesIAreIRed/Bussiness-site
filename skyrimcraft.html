@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyrimCraft — Драконобій у світі кубів</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; }
+  #game { display: block; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #e8e2d0; z-index: 10; }
+
+  .bars { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; }
+  .bar { width: 170px; height: 12px; background: rgba(0,0,0,.55); border: 1px solid #4a4233; border-radius: 7px; overflow: hidden; box-shadow: 0 0 6px #000; }
+  .bar > i { display: block; height: 100%; transition: width .15s linear; }
+  #hpFill { background: linear-gradient(#c0392b,#7b1f15); }
+  #mpFill { background: linear-gradient(#2980b9,#1a4f73); }
+  #spFill { background: linear-gradient(#27ae60,#176638); }
+
+  #crosshair { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%); opacity: .7; }
+  #crosshair::before, #crosshair::after { content:''; position:absolute; background:#fff; box-shadow:0 0 2px #000; }
+  #crosshair::before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
+  #crosshair::after { top:50%; left:0; height:2px; width:100%; transform:translateY(-50%); }
+
+  #topleft { position:absolute; top:14px; left:16px; text-shadow:0 1px 3px #000; }
+  #topleft .lvl { font-size: 20px; font-weight: bold; color:#e8c66a; }
+  #topleft .xpbar { width:200px; height:6px; background:rgba(0,0,0,.5); border:1px solid #4a4233; margin-top:4px; border-radius:4px; overflow:hidden; }
+  #topleft .xpbar > i { display:block; height:100%; background:#e8c66a; }
+  #goldRow { margin-top:8px; font-size:14px; color:#e8c66a; }
+
+  #compass { position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:18px; letter-spacing:3px; text-shadow:0 0 4px #000; color:#cdbf94; }
+
+  #questbox { position:absolute; top:14px; right:16px; width:230px; background:rgba(10,8,4,.55); border:1px solid #4a4233; border-radius:6px; padding:10px 12px; font-size:13px; text-shadow:0 1px 2px #000; }
+  #questbox h4 { color:#e8c66a; font-size:12px; letter-spacing:1px; margin-bottom:6px; text-transform:uppercase; }
+  #questbox .obj { color:#cfc8b4; }
+  #questbox .done { color:#6a6151; text-decoration:line-through; }
+
+  .hotbar { position:absolute; bottom:40px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+  .slot { width:46px; height:46px; background:rgba(0,0,0,.5); border:2px solid #4a4233; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:22px; position:relative; }
+  .slot.active { border-color:#e8c66a; box-shadow:0 0 10px #e8c66a88; }
+  .slot small { position:absolute; bottom:1px; right:3px; font-size:9px; color:#bbb; }
+
+  #shoutCd { position:absolute; bottom:80px; left:50%; transform:translateX(-50%); font-size:13px; color:#9ec4e8; text-shadow:0 0 6px #000; }
+
+  /* messages */
+  #toast { position:absolute; top:120px; left:50%; transform:translateX(-50%); text-align:center; font-size:22px; color:#e8c66a; text-shadow:0 2px 6px #000; opacity:0; transition:opacity .4s; }
+  #subtitle { position:absolute; bottom:140px; left:50%; transform:translateX(-50%); font-size:16px; color:#cfc8b4; font-style:italic; text-shadow:0 1px 4px #000; opacity:0; transition:opacity .4s; text-align:center; max-width:80%; }
+
+  #dmgFlash { position:fixed; inset:0; background:radial-gradient(transparent 55%, rgba(150,0,0,.55)); opacity:0; pointer-events:none; z-index:9; transition:opacity .12s; }
+
+  /* dragon health */
+  #bossbar { position:absolute; top:60px; left:50%; transform:translateX(-50%); width:380px; display:none; text-align:center; }
+  #bossbar .name { color:#d76a5a; font-size:15px; letter-spacing:2px; text-shadow:0 0 6px #000; margin-bottom:3px; }
+  #bossbar .b { height:10px; background:rgba(0,0,0,.6); border:1px solid #5a2018; border-radius:6px; overflow:hidden; }
+  #bossbar .b > i { display:block; height:100%; background:linear-gradient(#d76a5a,#7b1f15); width:100%; transition:width .2s; }
+
+  /* ---------- Menus ---------- */
+  .overlay { position:fixed; inset:0; background:rgba(4,6,10,.82); z-index:50; display:flex; align-items:center; justify-content:center; color:#e8e2d0; }
+  .panel { text-align:center; max-width:640px; padding:30px 40px; }
+  .panel h1 { font-size:52px; letter-spacing:6px; color:#cdbf94; text-shadow:0 0 18px #000, 0 0 40px #3a5a7a; margin-bottom:6px; }
+  .panel h1 b { color:#e8c66a; }
+  .panel .sub { color:#8fa9c4; letter-spacing:3px; margin-bottom:26px; font-size:14px; }
+  .panel p { color:#bcb6a4; line-height:1.7; margin-bottom:10px; font-size:14px; }
+  .panel .keys { display:grid; grid-template-columns:auto auto; gap:4px 18px; justify-content:center; margin:18px auto; font-size:13px; color:#cfc8b4; }
+  .panel .keys b { color:#e8c66a; }
+  .btn { pointer-events:auto; cursor:pointer; margin-top:18px; background:linear-gradient(#2a2418,#16130c); border:1px solid #6a5d3c; color:#e8c66a; padding:14px 38px; font-size:18px; letter-spacing:2px; border-radius:6px; text-transform:uppercase; transition:.15s; }
+  .btn:hover { background:linear-gradient(#3a3322,#221d12); box-shadow:0 0 14px #e8c66a55; }
+  #deathPanel h1 { color:#c0392b; text-shadow:0 0 20px #000,0 0 40px #c0392b; }
+  .hidden { display:none !important; }
+  #loading { color:#cdbf94; letter-spacing:3px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="compass">Пн</div>
+
+  <div id="topleft">
+    <div class="lvl">Рівень <span id="lvlNum">1</span></div>
+    <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
+    <div id="goldRow">💰 <span id="goldNum">0</span> золота</div>
+  </div>
+
+  <div id="bossbar">
+    <div class="name">СТАРОДАВНІЙ ДРАКОН</div>
+    <div class="b"><i id="bossFill"></i></div>
+  </div>
+
+  <div id="questbox">
+    <h4>Завдання</h4>
+    <div id="questObjs"></div>
+  </div>
+
+  <div id="crosshair"></div>
+
+  <div id="toast"></div>
+  <div id="subtitle"></div>
+
+  <div id="shoutCd"></div>
+
+  <div class="hotbar" id="hotbar"></div>
+
+  <div class="bars">
+    <div class="bar"><i id="mpFill" style="width:100%"></i></div>
+    <div class="bar"><i id="hpFill" style="width:100%"></i></div>
+    <div class="bar"><i id="spFill" style="width:100%"></i></div>
+  </div>
+</div>
+
+<div id="dmgFlash"></div>
+
+<!-- Start menu -->
+<div class="overlay" id="startMenu">
+  <div class="panel">
+    <h1>SKYRIM<b>CRAFT</b></h1>
+    <div class="sub">ДРАКОНОБІЙ У СВІТІ КУБІВ</div>
+    <p>Ти — Довакін, народжений з душею дракона у воксельному світі.<br>Зруйнуй блоки, побудуй свій притулок, знищуй ворогів і виклич Стародавнього Дракона.</p>
+    <div class="keys">
+      <b>W A S D</b><span>рух</span>
+      <b>Миша</b><span>огляд</span>
+      <b>Пробіл</b><span>стрибок</span>
+      <b>ЛКМ</b><span>атака / ламати блок</span>
+      <b>ПКМ</b><span>ставити блок</span>
+      <b>1–5</b><span>вибір предмета</span>
+      <b>Q</b><span>Крик «ФУС РО ДА»</span>
+      <b>F</b><span>магія вогню</span>
+      <b>Shift</b><span>біг</span>
+      <b>E</b><span>взаємодія</span>
+    </div>
+    <p style="color:#8fa9c4">Ціль: досягни 5 рівня та здолай Стародавнього Дракона.</p>
+    <button class="btn" id="startBtn">Почати пригоду</button>
+  </div>
+</div>
+
+<!-- Death -->
+<div class="overlay hidden" id="deathPanel">
+  <div class="panel">
+    <h1>ТИ ЗАГИНУВ</h1>
+    <p id="deathMsg">Душа дракона покинула цей світ...</p>
+    <button class="btn" id="respawnBtn">Відродитись</button>
+  </div>
+</div>
+
+<!-- Victory -->
+<div class="overlay hidden" id="winPanel">
+  <div class="panel">
+    <h1><b>ПЕРЕМОГА</b></h1>
+    <p>Ти поглинув душу Стародавнього Дракона!<br>Небеса вокселів знову спокійні. Довакіне, ти легенда.</p>
+    <p id="winStats" style="color:#8fa9c4"></p>
+    <button class="btn" id="winBtn">Грати знову</button>
+  </div>
+</div>
+
+<div class="overlay" id="loadingOverlay"><div id="loading">ГЕНЕРУЄМО СВІТ...</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   SKYRIMCRAFT — однофайлова воксельна RPG (Skyrim × Minecraft)
+   Рушій: Three.js. Без зовнішніх ассетів — усе генерується кодом.
+   ===================================================================== */
+(() => {
+"use strict";
+
+// ---- помічники ----
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const rand = (a,b)=>a+Math.random()*(b-a);
+const TAU = Math.PI*2;
+
+// ---- стан гри ----
+const G = {
+  started:false, over:false,
+  hp:100, hpMax:100, mp:100, mpMax:100, sp:100, spMax:100,
+  level:1, xp:0, xpNext:100, gold:0,
+  slot:0,
+  shoutReady:0,        // timestamp коли крик знову готовий
+  kills:0, blocksMined:0, blocksPlaced:0,
+  dragonSpawned:false, dragonDead:false,
+  startTime:0,
+};
+const SHOUT_CD = 6000; // мс
+
+// інвентар (хотбар)
+const HOTBAR = [
+  {name:'Меч',  icon:'⚔️', type:'weapon'},
+  {name:'Камінь',icon:'🪨', type:'block', block:3},
+  {name:'Земля',icon:'🟫', type:'block', block:1},
+  {name:'Дерево',icon:'🪵', type:'block', block:5},
+  {name:'Факел',icon:'🔥', type:'block', block:8},
+];
+
+// ---- THREE базове ----
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = false;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fb6d9);
+scene.fog = new THREE.Fog(0x8fb6d9, 40, 120);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 500);
+
+// освітлення
+const sun = new THREE.DirectionalLight(0xfff2d6, 1.0);
+sun.position.set(40, 80, 30);
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbfe0ff, 0x55502f, 0.75));
+
+// ---- блоковий світ ----
+// типи блоків та кольори граней (top, side, bottom)
+const BLOCKS = {
+  1:{name:'земля', col:[0x6b8f3a,0x8a6a3a,0x6e5630]},        // трава/земля
+  2:{name:'каменина',col:[0x8a8a8a,0x7c7c7c,0x6e6e6e]},
+  3:{name:'камінь', col:[0x9a9a9a,0x888888,0x777777]},
+  4:{name:'пісок',  col:[0xded3a0,0xd6c98f,0xc9bc80]},
+  5:{name:'дерево', col:[0x9a7b4f,0x7a5d36,0x6a4f2c]},
+  6:{name:'листя',  col:[0x3f7d34,0x376e2d,0x2f5f27]},
+  7:{name:'вода',   col:[0x2f6fb0,0x2f6fb0,0x2f6fb0]},
+  8:{name:'факел',  col:[0xffcf5a,0xffb23a,0xff9a2a]},
+  9:{name:'сніг',   col:[0xeef4fb,0xdfe8f2,0xd0dbe8]},
+};
+
+const WORLD = new Map();            // "x,y,z" -> blockType
+const key = (x,y,z)=>x+','+y+','+z;
+const getBlock = (x,y,z)=>WORLD.get(key(x,y,z))||0;
+
+// геометрія: один інстансований меш на тип блока для швидкості
+const blockGeo = new THREE.BoxGeometry(1,1,1);
+const instMeshes = {};      // type -> InstancedMesh
+const instData   = {};      // type -> {positions:[[x,y,z]...], index map}
+const MAX_INST = 90000;
+
+function buildInstancedMeshes(){
+  for(const t in BLOCKS){
+    const c = BLOCKS[t].col;
+    // усереднений колір для матеріалу + варіація через vertex colors не робимо — просто side колір
+    const mat = new THREE.MeshLambertMaterial({color:c[1]});
+    if(t==7){ mat.transparent=true; mat.opacity=0.7; }
+    if(t==8){ mat.emissive=new THREE.Color(c[0]); mat.emissiveIntensity=0.9; }
+    if(t==6){ mat.color=new THREE.Color(c[0]); }
+    if(t==1){ mat.color=new THREE.Color(c[0]); } // трава зверху-ish
+    const im = new THREE.InstancedMesh(blockGeo, mat, MAX_INST);
+    im.count = 0;
+    im.frustumCulled = false;
+    scene.add(im);
+    instMeshes[t]=im;
+    instData[t]={list:[], map:new Map()};
+  }
+}
+
+const _m = new THREE.Matrix4();
+function refreshInstance(t){
+  const im=instMeshes[t], d=instData[t];
+  for(let i=0;i<d.list.length;i++){
+    const p=d.list[i];
+    _m.makeTranslation(p[0]+0.5,p[1]+0.5,p[2]+0.5);
+    im.setMatrixAt(i,_m);
+  }
+  im.count=d.list.length;
+  im.instanceMatrix.needsUpdate=true;
+}
+
+function addBlock(x,y,z,t,defer){
+  const k=key(x,y,z);
+  if(WORLD.has(k)) return;
+  WORLD.set(k,t);
+  const d=instData[t];
+  d.map.set(k, d.list.length);
+  d.list.push([x,y,z]);
+  if(!defer) refreshInstance(t);
+}
+
+function removeBlock(x,y,z){
+  const k=key(x,y,z);
+  const t=WORLD.get(k); if(!t) return 0;
+  WORLD.delete(k);
+  const d=instData[t];
+  const idx=d.map.get(k);
+  const last=d.list.length-1;
+  if(idx!==last){
+    const moved=d.list[last];
+    d.list[idx]=moved;
+    d.map.set(key(moved[0],moved[1],moved[2]),idx);
+  }
+  d.list.pop(); d.map.delete(k);
+  refreshInstance(t);
+  return t;
+}
+
+// ---- генерація світу ----
+const WSIZE = 48;       // напіврозмір по X/Z
+function genHeight(x,z){
+  const h = 6
+    + Math.sin(x*0.12)*2.5 + Math.cos(z*0.11)*2.5
+    + Math.sin((x+z)*0.05)*3
+    + Math.sin(x*0.31)*Math.cos(z*0.27)*1.5;
+  return Math.round(h);
+}
+
+function generateWorld(){
+  for(let x=-WSIZE;x<=WSIZE;x++){
+    for(let z=-WSIZE;z<=WSIZE;z++){
+      const h=genHeight(x,z);
+      for(let y=h;y>h-4;y--){
+        let t = (y===h)?1:2;          // верх трава, нижче каменина
+        if(h<=4 && y===h) t=4;        // низини — пісок
+        if(h>=11 && y===h) t=9;       // вершини — сніг
+        addBlock(x,y,z,t,true);
+      }
+      // вода у западинах
+      if(h<4){ for(let y=h+1;y<=4;y++) addBlock(x,y,z,7,true); }
+      // дерева
+      if(h>4 && h<11 && Math.random()<0.012){
+        const th=4+(Math.random()*2|0);
+        for(let i=1;i<=th;i++) addBlock(x,h+i,z,5,true);
+        for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++) for(let dy=0;dy<=2;dy++){
+          if(Math.abs(dx)+Math.abs(dz)+dy<=3 && !(dx===0&&dz===0&&dy===0))
+            addBlock(x+dx,h+th+dy,z+dz,6,true);
+        }
+      }
+    }
+  }
+  // зруйнована вежа-орієнтир у центрі (драконобрехня)
+  for(let y=0;y<7;y++){
+    for(let a=0;a<TAU;a+=0.5){
+      const rx=Math.round(Math.cos(a)*3), rz=Math.round(Math.sin(a)*3);
+      const base=genHeight(rx,rz);
+      if(y%6!==5 || Math.random()<0.6) addBlock(rx, base+1+y, rz, 3, true);
+    }
+  }
+  for(const t in instData) refreshInstance(+t);
+}
+
+// висота поверхні для спавну
+function surfaceY(x,z){
+  let y=20;
+  while(y>-5 && getBlock(x,y,z)===0) y--;
+  return y;
+}
+
+// ---- гравець / фізика ----
+const player = {
+  pos:new THREE.Vector3(0, 25, 8),
+  vel:new THREE.Vector3(),
+  onGround:false,
+  yaw:0, pitch:0,
+  height:1.7, radius:0.3,
+};
+
+function collide(){
+  const p=player.pos, r=player.radius, h=player.height;
+  // перевірка по осях окремо вже зроблена в integrate; тут — простий sweep
+}
+
+function solidAt(x,y,z){
+  const b=getBlock(Math.floor(x),Math.floor(y),Math.floor(z));
+  return b!==0 && b!==7 && b!==8; // вода й факел не тверді
+}
+
+function tryMove(axis, amount){
+  const p=player.pos, r=player.radius, h=player.height;
+  p[axis]+=amount;
+  // bounding box гравця: x±r, z±r, y..y+h (pos = ноги)
+  const minX=Math.floor(p.x-r), maxX=Math.floor(p.x+r);
+  const minZ=Math.floor(p.z-r), maxZ=Math.floor(p.z+r);
+  const minY=Math.floor(p.y),   maxY=Math.floor(p.y+h);
+  for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++)for(let z=minZ;z<=maxZ;z++){
+    if(solidAt(x+0.5,y+0.5,z+0.5)){
+      // коректне виштовхування:
+      if(axis==='y'){
+        if(amount>0){ p.y=y-h-0.001; player.vel.y=0; }
+        else { p.y=y+1+0.001; player.vel.y=0; player.onGround=true; }
+      } else if(axis==='x'){
+        p.x = amount>0 ? x-r-0.001 : x+1+r+0.001;
+        player.vel.x=0;
+      } else {
+        p.z = amount>0 ? z-r-0.001 : z+1+r+0.001;
+        player.vel.z=0;
+      }
+      return;
+    }
+  }
+}
+
+// ---- введення ----
+const keys={};
+let pointerLocked=false;
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(!G.started||G.over) return;
+  if(e.code>='Digit1'&&e.code<='Digit5') selectSlot(+e.code.slice(5)-1);
+  if(e.code==='KeyQ') doShout();
+  if(e.code==='KeyF') castFire();
+  if(e.code==='KeyE') interact();
+});
+addEventListener('keyup',e=>keys[e.code]=false);
+
+canvas.addEventListener('click',()=>{ if(G.started&&!G.over&&!pointerLocked) canvas.requestPointerLock(); });
+document.addEventListener('pointerlockchange',()=>{ pointerLocked=document.pointerLockElement===canvas; });
+document.addEventListener('mousemove',e=>{
+  if(!pointerLocked) return;
+  player.yaw   -= e.movementX*0.0022;
+  player.pitch  = clamp(player.pitch - e.movementY*0.0022, -1.5, 1.5);
+});
+document.addEventListener('mousedown',e=>{
+  if(!G.started||G.over||!pointerLocked) return;
+  if(e.button===0) primaryAction();
+  if(e.button===2) placeBlock();
+});
+addEventListener('contextmenu',e=>e.preventDefault());
+
+// ---- рейкаст по вокселях (DDA) ----
+function raycastVoxel(maxDist){
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ')).normalize();
+  const origin=new THREE.Vector3(player.pos.x, player.pos.y+player.height*0.9, player.pos.z);
+  let x=Math.floor(origin.x), y=Math.floor(origin.y), z=Math.floor(origin.z);
+  const stepX=Math.sign(dir.x)||1, stepY=Math.sign(dir.y)||1, stepZ=Math.sign(dir.z)||1;
+  const tDX=Math.abs(1/dir.x), tDY=Math.abs(1/dir.y), tDZ=Math.abs(1/dir.z);
+  let tMX=((stepX>0? x+1-origin.x : origin.x-x))*tDX;
+  let tMY=((stepY>0? y+1-origin.y : origin.y-y))*tDY;
+  let tMZ=((stepZ>0? z+1-origin.z : origin.z-z))*tDZ;
+  let face=[0,0,0], t=0;
+  while(t<maxDist){
+    if(getBlock(x,y,z)!==0) return {x,y,z,face};
+    if(tMX<tMY&&tMX<tMZ){ x+=stepX; t=tMX; tMX+=tDX; face=[-stepX,0,0]; }
+    else if(tMY<tMZ){ y+=stepY; t=tMY; tMY+=tDY; face=[0,-stepY,0]; }
+    else { z+=stepZ; t=tMZ; tMZ+=tDZ; face=[0,0,-stepZ]; }
+  }
+  return null;
+}
+
+// ---- дії ----
+function primaryAction(){
+  const item=HOTBAR[G.slot];
+  if(item.type==='weapon'){ swingSword(); }
+  else { mineBlock(); }
+}
+
+function mineBlock(){
+  const hit=raycastVoxel(6);
+  if(!hit) return;
+  const t=getBlock(hit.x,hit.y,hit.z);
+  if(t===7) return;
+  removeBlock(hit.x,hit.y,hit.z);
+  G.blocksMined++;
+  spawnBlockParticles(hit.x,hit.y,hit.z,t);
+  questProgress('mine');
+}
+
+function placeBlock(){
+  const item=HOTBAR[G.slot];
+  if(item.type!=='block') return;
+  const hit=raycastVoxel(6);
+  if(!hit) return;
+  const nx=hit.x+hit.face[0], ny=hit.y+hit.face[1], nz=hit.z+hit.face[2];
+  // не ставити в себе
+  const pminX=Math.floor(player.pos.x-0.3),pmaxX=Math.floor(player.pos.x+0.3);
+  const pminZ=Math.floor(player.pos.z-0.3),pmaxZ=Math.floor(player.pos.z+0.3);
+  const pminY=Math.floor(player.pos.y),pmaxY=Math.floor(player.pos.y+player.height);
+  if(nx>=pminX&&nx<=pmaxX&&nz>=pminZ&&nz<=pmaxZ&&ny>=pminY&&ny<=pmaxY) return;
+  addBlock(nx,ny,nz,item.block);
+  G.blocksPlaced++;
+  questProgress('build');
+}
+
+// ---- меч / бій ----
+let swordSwing=0;
+function swingSword(){
+  if(G.sp<8) return;
+  G.sp-=8; swordSwing=1;
+  const reach=3.2;
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ'));
+  let best=null,bd=reach;
+  for(const en of enemies){
+    if(en.dead) continue;
+    const to=en.mesh.position.clone().sub(camera.position);
+    const dist=to.length();
+    if(dist>reach) continue;
+    to.normalize();
+    if(to.dot(dir)>0.6 && dist<bd){ bd=dist; best=en; }
+  }
+  if(best){ damageEnemy(best, 22+G.level*4); hitSpark(best.mesh.position); }
+}
+
+function castFire(){
+  if(G.mp<20){ toast('Недостатньо магії'); return; }
+  G.mp-=20;
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ')).normalize();
+  const origin=camera.position.clone();
+  projectiles.push({pos:origin, vel:dir.multiplyScalar(28), life:1.4, dmg:30+G.level*5, friendly:true, mesh:makeFireball(origin)});
+  subtitle('Vahlok! (Полум\'я!)');
+}
+
+function doShout(){
+  if(performance.now()<G.shoutReady){ toast('Крик ще не готовий'); return; }
+  G.shoutReady=performance.now()+SHOUT_CD;
+  subtitle('FUS RO DAH!');
+  shoutFlash();
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ'));
+  for(const en of enemies){
+    if(en.dead) continue;
+    const to=en.mesh.position.clone().sub(camera.position);
+    const dist=to.length();
+    if(dist<14 && to.clone().normalize().dot(dir)>0.4){
+      en.vel.add(to.normalize().multiplyScalar(18));
+      en.vel.y=8;
+      damageEnemy(en, 14);
+    }
+  }
+}
+
+function interact(){
+  // підняти золото поряд / активувати вівтар у вежі
+  for(const p of pickups){
+    if(p.dead) continue;
+    if(p.mesh.position.distanceTo(camera.position)<2.5){ collectPickup(p); }
+  }
+  // вівтар: близько до центру -> викликати дракона
+  if(!G.dragonSpawned && Math.hypot(player.pos.x,player.pos.z)<5 && G.level>=3){
+    summonDragon();
+  } else if(!G.dragonSpawned && Math.hypot(player.pos.x,player.pos.z)<5){
+    toast('Вівтар мовчить. Потрібен 3 рівень.');
+  }
+}
+
+// ---- вороги ----
+const enemies=[];
+function makeMaterial(c){ return new THREE.MeshLambertMaterial({color:c}); }
+
+// блоковий гуманоїд (Дроуг / Бандит)
+function makeHumanoid(color){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.8,0.35), makeMaterial(color));
+  body.position.y=0.9; g.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.45,0.45), makeMaterial(0xc9b79a));
+  head.position.y=1.55; g.add(head);
+  const armGeo=new THREE.BoxGeometry(0.18,0.7,0.18);
+  const la=new THREE.Mesh(armGeo,makeMaterial(color)); la.position.set(-0.4,0.95,0); g.add(la);
+  const ra=new THREE.Mesh(armGeo,makeMaterial(color)); ra.position.set(0.4,0.95,0); g.add(ra);
+  const legGeo=new THREE.BoxGeometry(0.22,0.7,0.22);
+  const ll=new THREE.Mesh(legGeo,makeMaterial(0x333333)); ll.position.set(-0.16,0.35,0); g.add(ll);
+  const rl=new THREE.Mesh(legGeo,makeMaterial(0x333333)); rl.position.set(0.16,0.35,0); g.add(rl);
+  g.userData.limbs={la,ra,ll,rl};
+  return g;
+}
+
+function spawnEnemy(type,x,z){
+  const y=surfaceY(Math.floor(x),Math.floor(z))+1;
+  let mesh,hp,dmg,xp,gold,speed,name;
+  if(type==='draugr'){ mesh=makeHumanoid(0x4a5a40); hp=60; dmg=10; xp=35; gold=15; speed=2.4; name='Дроуг'; }
+  else { mesh=makeHumanoid(0x6b3a2a); hp=45; dmg=8; xp=25; gold=12; speed=2.8; name='Бандит'; }
+  mesh.position.set(x,y,z); scene.add(mesh);
+  enemies.push({type,name,mesh,hp,hpMax:hp,dmg,xp,gold,speed,vel:new THREE.Vector3(),
+    dead:false,onGround:false,atkCd:0,anim:0,boss:false});
+}
+
+function damageEnemy(en,amount){
+  if(en.dead) return;
+  en.hp-=amount;
+  en.flash=6;
+  floatText(en.mesh.position, Math.round(amount), en.boss?'#ff8a5a':'#ffd34a');
+  if(en.boss) updateBossBar();
+  if(en.hp<=0) killEnemy(en);
+}
+
+function killEnemy(en){
+  en.dead=true;
+  scene.remove(en.mesh);
+  G.kills++;
+  gainXP(en.xp);
+  // дроп золота
+  dropGold(en.mesh.position, en.gold);
+  if(en.boss){ G.dragonDead=true; victory(); }
+  questProgress('kill');
+}
+
+// ---- дракон ----
+let dragon=null;
+function makeDragon(){
+  const g=new THREE.Group();
+  const dark=0x2e2a33, mid=0x46414f;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,3.4),makeMaterial(dark)); g.add(body);
+  const neck=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,1.6),makeMaterial(mid)); neck.position.set(0,0.4,2.2); g.add(neck);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.8,1.2),makeMaterial(dark)); head.position.set(0,0.7,3.3); g.add(head);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,2.6),makeMaterial(mid)); tail.position.set(0,0,-2.6); g.add(tail);
+  const wgeo=new THREE.BoxGeometry(3.4,0.15,1.8);
+  const lw=new THREE.Mesh(wgeo,makeMaterial(0x5a5560)); lw.position.set(-2.4,0.6,0); g.add(lw);
+  const rw=new THREE.Mesh(wgeo,makeMaterial(0x5a5560)); rw.position.set(2.4,0.6,0); g.add(rw);
+  // очі
+  const eg=new THREE.MeshBasicMaterial({color:0xff5522});
+  const e1=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.05),eg); e1.position.set(-0.3,0.85,3.85); g.add(e1);
+  const e2=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.05),eg); e2.position.set(0.3,0.85,3.85); g.add(e2);
+  g.userData.wings={lw,rw};
+  g.scale.setScalar(1.6);
+  return g;
+}
+
+function summonDragon(){
+  G.dragonSpawned=true;
+  const x=0, z=0, y=surfaceY(0,0)+22;
+  const mesh=makeDragon(); mesh.position.set(x,y,z); scene.add(mesh);
+  dragon={type:'dragon',name:'Алдуїн Кубічний',mesh,hp:600,hpMax:600,dmg:18,xp:300,gold:200,
+    speed:6,vel:new THREE.Vector3(),dead:false,boss:true,atkCd:0,anim:0,
+    state:'fly', timer:0, target:new THREE.Vector3()};
+  enemies.push(dragon);
+  document.getElementById('bossbar').style.display='block';
+  updateBossBar();
+  toast('СТАРОДАВНІЙ ДРАКОН ПРОБУДИВСЯ!');
+  subtitle('Алдуїн: «Zu\'u Alduin, Thuri!»');
+  questSetActive('boss');
+}
+
+function updateBossBar(){
+  if(!dragon) return;
+  document.getElementById('bossFill').style.width=clamp(dragon.hp/dragon.hpMax*100,0,100)+'%';
+  document.querySelector('#bossbar .name').textContent=dragon.name.toUpperCase();
+}
+
+// ---- снаряди (фаербол) ----
+const projectiles=[];
+function makeFireball(pos){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.25,8,8), new THREE.MeshBasicMaterial({color:0xff7722}));
+  m.position.copy(pos); scene.add(m); return m;
+}
+function makeDragonFire(pos){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.5,8,8), new THREE.MeshBasicMaterial({color:0xff3311}));
+  m.position.copy(pos); scene.add(m); return m;
+}
+
+// ---- підбірні предмети (золото) ----
+const pickups=[];
+function dropGold(pos,amount){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.3), new THREE.MeshBasicMaterial({color:0xe8c66a}));
+  m.position.copy(pos); m.position.y+=0.5; scene.add(m);
+  pickups.push({mesh:m,amount,dead:false,spin:0});
+}
+function collectPickup(p){
+  p.dead=true; scene.remove(p.mesh);
+  G.gold+=p.amount;
+  floatText(camera.position, '+'+p.amount+'💰', '#e8c66a');
+  updateHUD();
+}
+
+// ---- частинки ----
+const particles=[];
+function spawnBlockParticles(x,y,z,t){
+  const col=BLOCKS[t]?BLOCKS[t].col[1]:0x999999;
+  for(let i=0;i<6;i++){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.12),new THREE.MeshLambertMaterial({color:col}));
+    m.position.set(x+0.5,y+0.5,z+0.5); scene.add(m);
+    particles.push({mesh:m,vel:new THREE.Vector3(rand(-2,2),rand(2,5),rand(-2,2)),life:0.8});
+  }
+}
+function hitSpark(pos){
+  for(let i=0;i<5;i++){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.1),new THREE.MeshBasicMaterial({color:0xffcc44}));
+    m.position.copy(pos); m.position.y+=1; scene.add(m);
+    particles.push({mesh:m,vel:new THREE.Vector3(rand(-3,3),rand(1,4),rand(-3,3)),life:0.5});
+  }
+}
+
+// ---- спливаючий текст ----
+const floaters=[];
+function floatText(pos3,text,color){
+  const el=document.createElement('div');
+  el.textContent=text;
+  el.style.cssText=`position:fixed;color:${color};font-weight:bold;font-size:18px;text-shadow:0 1px 3px #000;pointer-events:none;z-index:8;`;
+  document.body.appendChild(el);
+  floaters.push({el,pos:pos3.clone(),life:1});
+}
+
+// ---- прокачка ----
+function gainXP(n){
+  G.xp+=n;
+  while(G.xp>=G.xpNext){
+    G.xp-=G.xpNext; G.level++; G.xpNext=Math.round(G.xpNext*1.4);
+    G.hpMax+=20; G.mpMax+=10; G.spMax+=10;
+    G.hp=G.hpMax; G.mp=G.mpMax; G.sp=G.spMax;
+    toast('РІВЕНЬ '+G.level+'!');
+    subtitle('Ти став сильнішим, Довакіне');
+    questProgress('level');
+  }
+  updateHUD();
+}
+
+// ---- HUD ----
+function updateHUD(){
+  document.getElementById('hpFill').style.width=clamp(G.hp/G.hpMax*100,0,100)+'%';
+  document.getElementById('mpFill').style.width=clamp(G.mp/G.mpMax*100,0,100)+'%';
+  document.getElementById('spFill').style.width=clamp(G.sp/G.spMax*100,0,100)+'%';
+  document.getElementById('lvlNum').textContent=G.level;
+  document.getElementById('xpFill').style.width=(G.xp/G.xpNext*100)+'%';
+  document.getElementById('goldNum').textContent=G.gold;
+}
+
+function buildHotbar(){
+  const hb=document.getElementById('hotbar'); hb.innerHTML='';
+  HOTBAR.forEach((it,i)=>{
+    const d=document.createElement('div');
+    d.className='slot'+(i===G.slot?' active':'');
+    d.innerHTML=`${it.icon}<small>${i+1}</small>`;
+    hb.appendChild(d);
+  });
+}
+function selectSlot(i){ G.slot=clamp(i,0,HOTBAR.length-1); buildHotbar(); }
+
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.opacity=1;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.style.opacity=0,1800);
+}
+let subTimer;
+function subtitle(msg){
+  const el=document.getElementById('subtitle');
+  el.textContent=msg; el.style.opacity=1;
+  clearTimeout(subTimer); subTimer=setTimeout(()=>el.style.opacity=0,2600);
+}
+function damageFlash(){
+  const el=document.getElementById('dmgFlash');
+  el.style.opacity=1; setTimeout(()=>el.style.opacity=0,120);
+}
+function shoutFlash(){
+  const el=document.getElementById('dmgFlash');
+  el.style.background='radial-gradient(transparent 50%, rgba(80,140,220,.5))';
+  el.style.opacity=1;
+  setTimeout(()=>{el.style.opacity=0; setTimeout(()=>el.style.background='radial-gradient(transparent 55%, rgba(150,0,0,.55))',200);},150);
+}
+
+// ---- квести ----
+const QUESTS=[
+  {id:'mine', text:'Видобути 10 блоків', need:10, prog:0, kind:'mine'},
+  {id:'kill', text:'Знищити 5 ворогів', need:5, prog:0, kind:'kill'},
+  {id:'build',text:'Поставити 5 блоків', need:5, prog:0, kind:'build'},
+  {id:'level',text:'Досягти 3 рівня', need:3, prog:1, kind:'level'},
+  {id:'boss', text:'Перемогти Стародавнього Дракона', need:1, prog:0, kind:'boss'},
+];
+function questProgress(kind){
+  for(const q of QUESTS){
+    if(q.kind!==kind || q.done) continue;
+    if(kind==='level') q.prog=G.level; else q.prog++;
+    if(q.prog>=q.need){ q.done=true; toast('Завдання виконано: '+q.text); gainXP(40); }
+  }
+  renderQuests();
+  // підказка щодо боса
+  if(QUESTS[3].done && !G.dragonSpawned) subtitle('Іди до вівтаря в центрі (вежа) і натисни E');
+}
+function questSetActive(id){ renderQuests(); }
+function renderQuests(){
+  const c=document.getElementById('questObjs'); c.innerHTML='';
+  for(const q of QUESTS){
+    if(q.id==='boss' && !G.dragonSpawned && !QUESTS[3].done) continue;
+    const d=document.createElement('div');
+    d.className='obj'+(q.done?' done':'');
+    const cnt=q.kind==='boss'?'':' ('+Math.min(q.prog,q.need)+'/'+q.need+')';
+    d.textContent=(q.done?'✓ ':'• ')+q.text+cnt;
+    c.appendChild(d);
+  }
+}
+
+// ---- спавн ворогів довкола ----
+let spawnTimer=0;
+function maybeSpawnEnemies(dt){
+  spawnTimer-=dt;
+  const alive=enemies.filter(e=>!e.dead&&!e.boss).length;
+  if(spawnTimer<=0 && alive<6 && !G.dragonDead){
+    spawnTimer=4;
+    const ang=Math.random()*TAU, d=rand(14,26);
+    const x=player.pos.x+Math.cos(ang)*d, z=player.pos.z+Math.sin(ang)*d;
+    if(Math.abs(x)<WSIZE-2 && Math.abs(z)<WSIZE-2)
+      spawnEnemy(Math.random()<0.5?'draugr':'bandit', x, z);
+  }
+}
+
+// ---- урон гравцю ----
+function hurtPlayer(amount){
+  if(G.over) return;
+  G.hp-=amount; damageFlash(); updateHUD();
+  if(G.hp<=0) die();
+}
+function die(){
+  G.over=true; document.exitPointerLock();
+  document.getElementById('deathPanel').classList.remove('hidden');
+}
+function victory(){
+  G.over=true; document.exitPointerLock();
+  document.getElementById('bossbar').style.display='none';
+  const t=((performance.now()-G.startTime)/1000)|0;
+  document.getElementById('winStats').textContent=
+    `Рівень ${G.level} · Вбивств: ${G.kills} · Золота: ${G.gold} · Час: ${(t/60|0)}хв ${t%60}с`;
+  document.getElementById('winPanel').classList.remove('hidden');
+}
+
+// ---- оновлення ворогів ----
+function updateEnemies(dt){
+  for(const en of enemies){
+    if(en.dead) continue;
+    if(en.boss){ updateDragon(en,dt); continue; }
+    // гравітація
+    en.vel.y-=24*dt;
+    // рух до гравця
+    const to=new THREE.Vector3(player.pos.x-en.mesh.position.x,0,player.pos.z-en.mesh.position.z);
+    const dist=to.length();
+    if(dist>1.6){
+      to.normalize();
+      en.vel.x=to.x*en.speed; en.vel.z=to.z*en.speed;
+      en.mesh.rotation.y=Math.atan2(to.x,to.z);
+      en.anim+=dt*8;
+    } else {
+      en.vel.x=0; en.vel.z=0;
+      en.atkCd-=dt;
+      if(en.atkCd<=0){ en.atkCd=1.1; hurtPlayer(en.dmg); en.anim+=2; }
+    }
+    // інтеграція + колізія з землею (спрощено)
+    en.mesh.position.x+=en.vel.x*dt;
+    en.mesh.position.z+=en.vel.z*dt;
+    en.mesh.position.y+=en.vel.y*dt;
+    const gy=surfaceY(Math.floor(en.mesh.position.x),Math.floor(en.mesh.position.z))+1;
+    if(en.mesh.position.y<gy){ en.mesh.position.y=gy; en.vel.y=0; en.onGround=true; }
+    // анімація кінцівок
+    const L=en.mesh.userData.limbs;
+    if(L){ const s=Math.sin(en.anim)*0.6; L.la.rotation.x=s; L.ra.rotation.x=-s; L.ll.rotation.x=-s; L.rl.rotation.x=s; }
+    // спалах при ударі
+    if(en.flash>0){ en.flash--; en.mesh.children[0].material.emissive=new THREE.Color(0x661111); }
+    else if(en.mesh.children[0].material.emissive) en.mesh.children[0].material.emissive=new THREE.Color(0x000000);
+  }
+}
+
+function updateDragon(d,dt){
+  d.timer-=dt; d.anim+=dt;
+  const wings=d.mesh.userData.wings;
+  if(wings){ const f=Math.sin(d.anim*6)*0.5; wings.lw.rotation.z=f; wings.rw.rotation.z=-f; }
+  const toPlayer=camera.position.clone().sub(d.mesh.position);
+  const dist=toPlayer.length();
+  // дивитись на гравця
+  d.mesh.rotation.y=Math.atan2(toPlayer.x,toPlayer.z);
+
+  if(d.state==='fly'){
+    // кружляє високо, періодично пікірує
+    if(!d.orbitA) d.orbitA=0;
+    d.orbitA+=dt*0.6;
+    const r=18, cy=surfaceY(0,0)+16;
+    const tx=Math.cos(d.orbitA)*r, tz=Math.sin(d.orbitA)*r;
+    d.mesh.position.x+=(tx-d.mesh.position.x)*dt*0.8;
+    d.mesh.position.z+=(tz-d.mesh.position.z)*dt*0.8;
+    d.mesh.position.y+=(cy-d.mesh.position.y)*dt*0.8;
+    d.atkCd-=dt;
+    if(d.atkCd<=0){ d.atkCd=2.2; breathFire(d); }
+    if(d.timer<=0){ d.state='swoop'; d.timer=3.5; }
+  } else if(d.state==='swoop'){
+    // пікірує до гравця
+    const dir=toPlayer.clone().normalize();
+    d.mesh.position.addScaledVector(dir, d.speed*dt*1.6);
+    if(dist<3){ hurtPlayer(d.dmg); d.state='fly'; d.timer=4; }
+    if(d.timer<=0){ d.state='fly'; d.timer=4; }
+  }
+  if(d.flash>0){ d.flash--; }
+}
+
+function breathFire(d){
+  const dir=camera.position.clone().sub(d.mesh.position).normalize();
+  const origin=d.mesh.position.clone().add(dir.clone().multiplyScalar(3));
+  for(let i=0;i<3;i++){
+    const spread=dir.clone().add(new THREE.Vector3(rand(-.1,.1),rand(-.1,.1),rand(-.1,.1))).normalize();
+    projectiles.push({pos:origin.clone(),vel:spread.multiplyScalar(20),life:2.2,dmg:14,friendly:false,mesh:makeDragonFire(origin)});
+  }
+  subtitle('Алдуїн: «Yol Toor Shul!»');
+}
+
+// ---- снаряди оновлення ----
+function updateProjectiles(dt){
+  for(const p of projectiles){
+    if(p.dead) continue;
+    p.life-=dt;
+    p.pos.addScaledVector(p.vel,dt);
+    p.mesh.position.copy(p.pos);
+    // зіткнення з блоком
+    if(getBlock(Math.floor(p.pos.x),Math.floor(p.pos.y),Math.floor(p.pos.z))!==0){ p.dead=true; scene.remove(p.mesh); continue; }
+    if(p.friendly){
+      for(const en of enemies){
+        if(en.dead) continue;
+        if(p.pos.distanceTo(en.mesh.position.clone().add(new THREE.Vector3(0,en.boss?1:1,0)))<(en.boss?2.5:1)){
+          damageEnemy(en,p.dmg); p.dead=true; scene.remove(p.mesh); break;
+        }
+      }
+    } else {
+      if(p.pos.distanceTo(camera.position)<1){ hurtPlayer(p.dmg); p.dead=true; scene.remove(p.mesh); }
+    }
+    if(p.life<=0){ p.dead=true; scene.remove(p.mesh); }
+  }
+}
+
+// ---- частинки/підбірні/флоатери оновлення ----
+function updateExtras(dt){
+  for(const pa of particles){
+    if(pa.dead) continue;
+    pa.life-=dt; pa.vel.y-=18*dt;
+    pa.mesh.position.addScaledVector(pa.vel,dt);
+    pa.mesh.scale.setScalar(clamp(pa.life/0.6,0,1));
+    if(pa.life<=0){ pa.dead=true; scene.remove(pa.mesh); }
+  }
+  for(const p of pickups){
+    if(p.dead) continue;
+    p.spin+=dt*3; p.mesh.rotation.y=p.spin;
+    p.mesh.position.y+=Math.sin(p.spin*1.5)*0.003;
+    if(p.mesh.position.distanceTo(camera.position)<1.8) collectPickup(p);
+  }
+  for(const f of floaters){
+    if(f.dead) continue;
+    f.life-=dt; f.pos.y+=dt*1.2;
+    const v=f.pos.clone().project(camera);
+    if(v.z>1){ f.el.style.display='none'; }
+    else {
+      f.el.style.display='block';
+      f.el.style.left=(v.x*0.5+0.5)*innerWidth+'px';
+      f.el.style.top=(-v.y*0.5+0.5)*innerHeight+'px';
+      f.el.style.opacity=clamp(f.life,0,1);
+    }
+    if(f.life<=0){ f.dead=true; f.el.remove(); }
+  }
+}
+function cleanupArrays(){
+  for(let a of [enemies,projectiles,particles,pickups,floaters]){
+    for(let i=a.length-1;i>=0;i--) if(a[i].dead) a.splice(i,1);
+  }
+}
+
+// ---- компас ----
+const DIRS=['Пн','ПнСх','Сх','ПдСх','Пд','ПдЗх','Зх','ПнЗх'];
+function updateCompass(){
+  let a=((-player.yaw)%TAU+TAU)%TAU;
+  const idx=Math.round(a/(TAU/8))%8;
+  document.getElementById('compass').textContent=DIRS[idx];
+}
+
+// ---- основний цикл ----
+let last=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min((now-last)/1000||0,0.05); last=now;
+  if(G.started&&!G.over) update(dt);
+  render();
+}
+
+function update(dt){
+  // реген
+  G.sp=clamp(G.sp+18*dt,0,G.spMax);
+  G.mp=clamp(G.mp+8*dt,0,G.mpMax);
+  if(G.hp<G.hpMax) G.hp=clamp(G.hp+2.0*dt,0,G.hpMax);
+
+  // рух гравця
+  const speed=(keys['ShiftLeft']||keys['ShiftRight']) && G.sp>1 ? 7.2 : 4.6;
+  if((keys['ShiftLeft']||keys['ShiftRight'])&&(keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'])) G.sp=clamp(G.sp-8*dt,0,G.spMax);
+  const fwd=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
+  const right=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
+  const move=new THREE.Vector3();
+  if(keys['KeyW']) move.add(fwd);
+  if(keys['KeyS']) move.sub(fwd);
+  if(keys['KeyD']) move.add(right);
+  if(keys['KeyA']) move.sub(right);
+  if(move.lengthSq()>0) move.normalize().multiplyScalar(speed);
+  player.vel.x=move.x; player.vel.z=move.z;
+
+  // гравітація + стрибок
+  player.vel.y-=26*dt;
+  if(keys['Space']&&player.onGround){ player.vel.y=8.4; player.onGround=false; }
+  player.onGround=false;
+
+  tryMove('x',player.vel.x*dt);
+  tryMove('z',player.vel.z*dt);
+  tryMove('y',player.vel.y*dt);
+
+  // межі світу
+  player.pos.x=clamp(player.pos.x,-WSIZE+1,WSIZE-1);
+  player.pos.z=clamp(player.pos.z,-WSIZE+1,WSIZE-1);
+  if(player.pos.y<-10){ hurtPlayer(999); }
+
+  // камера
+  camera.position.set(player.pos.x, player.pos.y+player.height, player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+
+  // sun слідує
+  sun.position.set(player.pos.x+40, 90, player.pos.z+30);
+  sun.target.position.copy(player.pos); sun.target.updateMatrixWorld();
+
+  maybeSpawnEnemies(dt);
+  updateEnemies(dt);
+  updateProjectiles(dt);
+  updateExtras(dt);
+  cleanupArrays();
+  updateCompass();
+
+  // swing decay
+  if(swordSwing>0) swordSwing=Math.max(0,swordSwing-dt*4);
+
+  // shout cd display
+  const cd=G.shoutReady-performance.now();
+  document.getElementById('shoutCd').textContent= cd>0 ? `Крик: ${(cd/1000).toFixed(1)}с` : 'Крик готовий (Q)';
+
+  updateHUD();
+}
+
+function render(){ renderer.render(scene,camera); }
+
+// ---- ресайз ----
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ---- старт / рестарт ----
+function resetGame(){
+  // прибрати все динамічне
+  for(const a of [enemies,projectiles,particles,pickups]) for(const o of a) if(o.mesh) scene.remove(o.mesh);
+  for(const f of floaters) f.el.remove();
+  enemies.length=projectiles.length=particles.length=pickups.length=floaters.length=0;
+  dragon=null;
+  Object.assign(G,{started:true,over:false,hp:100,hpMax:100,mp:100,mpMax:100,sp:100,spMax:100,
+    level:1,xp:0,xpNext:100,gold:0,slot:0,shoutReady:0,kills:0,blocksMined:0,blocksPlaced:0,
+    dragonSpawned:false,dragonDead:false,startTime:performance.now()});
+  QUESTS.forEach(q=>{q.done=false; q.prog=q.kind==='level'?1:0;});
+  const sy=surfaceY(0,8)+2;
+  player.pos.set(0,sy,8); player.vel.set(0,0,0); player.yaw=Math.PI; player.pitch=0;
+  document.getElementById('bossbar').style.display='none';
+  buildHotbar(); renderQuests(); updateHUD();
+  // спавн стартових ворогів
+  spawnEnemy('bandit', 10, 0); spawnEnemy('draugr', -8, 6);
+}
+
+function startGame(){
+  document.getElementById('startMenu').classList.add('hidden');
+  document.getElementById('deathPanel').classList.add('hidden');
+  document.getElementById('winPanel').classList.add('hidden');
+  resetGame();
+  canvas.requestPointerLock();
+  toast('Прокинься, Довакіне!');
+  subtitle('Видобувай, будуй, бийся. Поклич дракона біля вежі.');
+}
+
+document.getElementById('startBtn').onclick=startGame;
+document.getElementById('respawnBtn').onclick=startGame;
+document.getElementById('winBtn').onclick=startGame;
+
+// ---- ініціалізація світу ----
+function init(){
+  buildInstancedMeshes();
+  generateWorld();
+  buildHotbar();
+  renderQuests();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  requestAnimationFrame(loop);
+}
+// невелика затримка щоб показати екран завантаження
+setTimeout(init, 60);
+
+})();
+</script>
+</body>
+</html>
