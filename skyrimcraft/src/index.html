@@ -30,6 +30,11 @@
     <div id="questObjs"></div>
   </div>
 
+  <div id="minimap">
+    <canvas id="minimapCanvas" width="160" height="160"></canvas>
+    <div id="minimapN">Пн</div>
+  </div>
+
   <div id="crosshair"></div>
   <div id="toast"></div>
   <div id="subtitle"></div>
@@ -82,7 +87,25 @@
       <b>F11</b><span>повний екран</span>
     </div>
     <p class="goal">Мета: дійди до 3 рівня, активуй вівтар у вежі (центр) і здолай дракона.</p>
-    <button class="btn" id="startBtn">Почати пригоду</button>
+    <button class="btn" id="continueBtn" style="display:none">Продовжити</button>
+    <button class="btn" id="startBtn">Нова пригода</button>
+    <button class="btn small" id="settingsBtn">Налаштування</button>
+  </div>
+</div>
+
+<!-- ===================== Settings ===================== -->
+<div class="overlay hidden" id="settingsPanel">
+  <div class="panel skills">
+    <h2>Налаштування</h2>
+    <div class="setrow"><label>Чутливість миші</label>
+      <input type="range" id="setSens" min="0.3" max="3" step="0.1"><span id="setSensV"></span></div>
+    <div class="setrow"><label>Гучність</label>
+      <input type="range" id="setVol" min="0" max="1" step="0.05"><span id="setVolV"></span></div>
+    <div class="setrow"><label>Поле зору (FOV)</label>
+      <input type="range" id="setFov" min="60" max="100" step="1"><span id="setFovV"></span></div>
+    <div class="setrow"><label>Дальність промальовки</label>
+      <input type="range" id="setView" min="70" max="220" step="10"><span id="setViewV"></span></div>
+    <button class="btn small" id="closeSettings">Готово</button>
   </div>
 </div>
 

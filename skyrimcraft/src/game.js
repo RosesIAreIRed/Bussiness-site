@@ -15,7 +15,7 @@ const TAU=Math.PI*2;
 /* ============================= АУДІО ============================= */
 const Audio={ctx:null,master:null,
   init(){ try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)();
-    this.master=this.ctx.createGain(); this.master.gain.value=0.35; this.master.connect(this.ctx.destination);
+    this.master=this.ctx.createGain(); this.master.gain.value=Settings.vol; this.master.connect(this.ctx.destination);
   }catch(e){} },
   blip(freq,dur,type,vol,slide){ if(!this.ctx) return;
     const t=this.ctx.currentTime, o=this.ctx.createOscillator(), g=this.ctx.createGain();
@@ -49,7 +49,7 @@ const G={started:false,over:false,paused:false,
   hp:100,hpMax:100,mp:100,mpMax:100,sp:100,spMax:100,
   level:1,xp:0,xpNext:100,gold:0,perks:0,slot:0,
   shoutReady:0,kills:0,blocksMined:0,blocksPlaced:0,
-  dragonSpawned:false,dragonDead:false,startTime:0,time:0.28};
+  dragonSpawned:false,dragonDead:false,startTime:0,time:0.28,seed:12345};
 const SHOUT_CD_BASE=6000;
 // перки (рівні)
 const PERK={might:0,destruction:0,vitality:0,swift:0,thuum:0,fortune:0};
@@ -71,6 +71,25 @@ const HOTBAR=[
   {name:'Зілля', icon:'🧪',type:'potion'},
 ];
 
+/* ============================= НАЛАШТУВАННЯ ============================= */
+const Settings={sens:1.0,vol:0.35,fov:74,view:150};
+function loadSettings(){ try{ const s=JSON.parse(localStorage.getItem('skyrimcraft.settings')); if(s)Object.assign(Settings,s);}catch(e){} }
+function saveSettings(){ try{ localStorage.setItem('skyrimcraft.settings',JSON.stringify(Settings)); }catch(e){} }
+loadSettings();
+
+/* ---- збереження прогресу ---- */
+function saveGame(){ try{ localStorage.setItem('skyrimcraft.save',JSON.stringify({
+  level:G.level,xp:G.xp,xpNext:G.xpNext,gold:G.gold,perks:G.perks,
+  hpMax:G.hpMax,mpMax:G.mpMax,spMax:G.spMax,kills:G.kills,seed:G.seed,
+  dragonDead:G.dragonDead,perkLevels:{...PERK}})); }catch(e){} }
+function loadSave(){ try{ return JSON.parse(localStorage.getItem('skyrimcraft.save')); }catch(e){ return null; } }
+function hasSave(){ return !!loadSave(); }
+
+/* ---- сід-генератор (для відтворюваного світу) ---- */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+let RNG=Math.random;
+
 /* ============================= РЕНДЕР ============================= */
 const canvas=document.getElementById('game');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
@@ -83,9 +102,9 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
 
 const scene=new THREE.Scene();
-scene.fog=new THREE.Fog(0x8fb6d9,46,150);
+scene.fog=new THREE.Fog(0x8fb6d9,Settings.view*0.35,Settings.view);
 
-const camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,0.06,600);
+const camera=new THREE.PerspectiveCamera(Settings.fov,innerWidth/innerHeight,0.06,600);
 
 // окрема сцена для viewmodel (зброя в руках), щоб не обрізалась
 const vmScene=new THREE.Scene();
@@ -106,6 +125,7 @@ scene.add(sun); scene.add(sun.target);
 const hemi=new THREE.HemisphereLight(0xbfe0ff,0x55502f,0.7); scene.add(hemi);
 const ambient=new THREE.AmbientLight(0xffffff,0.18); scene.add(ambient);
 const moonLight=new THREE.DirectionalLight(0x9fb6e0,0.0); scene.add(moonLight);
+const lantern=new THREE.PointLight(0xffcf8a,0.0,22,2); scene.add(lantern);
 
 /* ============================= НЕБО ============================= */
 const skyUniforms={
@@ -153,6 +173,14 @@ for(let i=0;i<14;i++){
   m.position.set(rand(-160,160),rand(58,86),rand(-160,160));
   scene.add(m); clouds.push(m);
 }
+
+/* ---- світіння (fake bloom через адитивні спрайти) ---- */
+const glowTex=(()=>{ const s=64,c=document.createElement('canvas'); c.width=c.height=s; const ctx=c.getContext('2d');
+  const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2); g.addColorStop(0,'rgba(255,255,255,1)');
+  g.addColorStop(0.4,'rgba(255,255,255,0.5)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,s,s); return new THREE.CanvasTexture(c); })();
+function makeGlow(color,size){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color,
+  blending:THREE.AdditiveBlending,depthWrite:false,transparent:true})); sp.scale.setScalar(size||1.5); return sp; }
 
 /* ============================= ТЕКСТУРИ ============================= */
 function px(ctx,x,y,c){ ctx.fillStyle=c; ctx.fillRect(x,y,1,1); }
@@ -207,12 +235,13 @@ const getBlock=(x,y,z)=>WORLD.get(key(x,y,z))||0;
 
 const blockGeo=new THREE.BoxGeometry(1,1,1);
 const instMeshes={}, instData={};
-const MAX_INST=60000;
+const MAX_INST=90000;
 function buildInstancedMeshes(){
   for(const t in BLOCKS){
     const im=new THREE.InstancedMesh(blockGeo,BLOCKS[t].mats(),MAX_INST);
     im.count=0; im.frustumCulled=false;
     im.castShadow=false; im.receiveShadow=true;       // світ приймає тіні
+    if(t==7){ im.material.forEach(mt=>{ if(mt.map){ mt.map.wrapS=mt.map.wrapT=THREE.RepeatWrapping; } }); }
     scene.add(im); instMeshes[t]=im; instData[t]={list:[],map:new Map()};
   }
 }
@@ -227,7 +256,7 @@ function removeBlock(x,y,z){ const k=key(x,y,z); const t=WORLD.get(k); if(!t)ret
   if(idx!==last){ const mv=d.list[last]; d.list[idx]=mv; d.map.set(key(mv[0],mv[1],mv[2]),idx); }
   d.list.pop(); d.map.delete(k); refreshInstance(t); return t; }
 
-const WSIZE=46;
+const WSIZE=54;
 function genHeight(x,z){
   return Math.round(6 + Math.sin(x*0.12)*2.5 + Math.cos(z*0.11)*2.5
     + Math.sin((x+z)*0.05)*3 + Math.sin(x*0.31)*Math.cos(z*0.27)*1.5);
@@ -240,28 +269,39 @@ function generateWorld(onProgress){
       let t=(y===h)?1:2;
       if(h<=4&&y===h)t=4;
       if(h>=11&&y===h)t=9;
-      if(y<h-1&&Math.random()<0.05)t=10;     // руда глибше
+      if(y<h-1&&RNG()<0.05)t=10;     // руда глибше
       addBlock(x,y,z,t,true);
     }
     if(h<4){ for(let y=h+1;y<=4;y++)addBlock(x,y,z,7,true); }
-    if(h>4&&h<11&&Math.random()<0.013){
-      const th=4+randi(0,2);
+    if(h>4&&h<11&&RNG()<0.013){
+      const th=4+Math.floor(RNG()*3);
       for(let i=1;i<=th;i++)addBlock(x,h+i,z,5,true);
       for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)for(let dy=0;dy<=2;dy++)
         if(Math.abs(dx)+Math.abs(dz)+dy<=3&&!(dx===0&&dz===0&&dy===0))addBlock(x+dx,h+th+dy,z+dz,6,true);
     }
   }
+  // розкидані валуни-орієнтири
+  for(let i=0;i<14;i++){ const x=Math.floor(RNG()*WSIZE*2-WSIZE),z=Math.floor(RNG()*WSIZE*2-WSIZE),h=genHeight(x,z);
+    if(h>4&&h<11)for(let dx=0;dx<2;dx++)for(let dz=0;dz<2;dz++)for(let dy=1;dy<=1+Math.floor(RNG()*2);dy++)addBlock(x+dx,h+dy,z+dz,3,true); }
   // центральна вежа-вівтар
   for(let y=0;y<8;y++)for(let a=0;a<TAU;a+=0.45){
     const rx=Math.round(Math.cos(a)*3.2),rz=Math.round(Math.sin(a)*3.2);
-    if(y%6!==5||Math.random()<0.6)addBlock(rx,genHeight(rx,rz)+1+y,rz,3,true);
+    if(y%6!==5||RNG()<0.6)addBlock(rx,genHeight(rx,rz)+1+y,rz,3,true);
   }
-  // вівтар-факели
   addBlock(0,genHeight(0,0)+1,0,8,true);
   for(const t in instData)refreshInstance(+t);
+  // скрині зі скарбами по світу
+  for(let i=0;i<6;i++){ const a=RNG()*TAU,r=rand(16,WSIZE-6);
+    const x=Math.round(Math.cos(a)*r),z=Math.round(Math.sin(a)*r); if(genHeight(x,z)>4)makeChest(x,z); }
   if(onProgress)onProgress(1);
 }
 function surfaceY(x,z){ let y=22; while(y>-6&&getBlock(x,y,z)===0)y--; return y; }
+function clearWorld(){
+  WORLD.clear();
+  for(const t in instData){ instData[t].list.length=0; instData[t].map.clear(); instMeshes[t].count=0; instMeshes[t].instanceMatrix.needsUpdate=true; }
+  for(const c of chests)scene.remove(c.mesh); chests.length=0;
+}
+function regenerateWorld(seed){ G.seed=seed; RNG=mulberry32(seed); clearWorld(); generateWorld(()=>{}); }
 
 /* ============================= ГРАВЕЦЬ ============================= */
 const player={pos:new THREE.Vector3(0,25,8),vel:new THREE.Vector3(),onGround:false,
@@ -327,8 +367,8 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>keys[e.code]=false);
 canvas.addEventListener('click',()=>{ if(G.started&&!G.over&&!G.paused&&!pointerLocked)canvas.requestPointerLock(); });
 document.addEventListener('pointerlockchange',()=>pointerLocked=document.pointerLockElement===canvas);
-document.addEventListener('mousemove',e=>{ if(!pointerLocked)return;
-  player.yaw-=e.movementX*0.0022; player.pitch=clamp(player.pitch-e.movementY*0.0022,-1.5,1.5); });
+document.addEventListener('mousemove',e=>{ if(!pointerLocked)return; const s=0.0022*Settings.sens;
+  player.yaw-=e.movementX*s; player.pitch=clamp(player.pitch-e.movementY*s,-1.5,1.5); });
 document.addEventListener('mousedown',e=>{ if(!G.started||G.over||G.paused||!pointerLocked)return;
   if(e.button===0)primaryAction(); if(e.button===2)secondaryAction(); });
 addEventListener('contextmenu',e=>e.preventDefault());
@@ -403,6 +443,7 @@ function doShout(){ const cd=SHOUT_CD_BASE-PERK.thuum*1000;
 function drinkPotion(){ if(G.gold<25){toast('Потрібно 25 золота');return;} G.gold-=25; G.hp=clamp(G.hp+50,0,G.hpMax); Audio.gold(); toast('+50 здоров\'я'); floatText(camera.position,'+50','#37c46b'); }
 function interact(){
   for(const p of pickups){ if(!p.dead&&p.mesh.position.distanceTo(camera.position)<2.6)collectPickup(p); }
+  if(tryOpenChest())return;
   if(!G.dragonSpawned&&Math.hypot(player.pos.x,player.pos.z)<5){
     if(G.level>=3)summonDragon(); else toast('Вівтар мовчить. Потрібен 3 рівень.');
   }
@@ -438,11 +479,14 @@ function spawnEnemy(type,x,z){
   enemies.push({type,name:def.name,mesh,hp:def.hp*scale,hpMax:def.hp*scale,dmg:def.dmg*scale,
     xp:def.xp,gold:def.gold,speed:def.speed,ranged:def.ranged,frost:def.frost,
     vel:new THREE.Vector3(),dead:false,onGround:false,atkCd:rand(0,1),anim:0,boss:false,slowT:0,flash:0});
+  createEnemyBar(enemies[enemies.length-1]);
 }
-function damageEnemy(en,amount){ if(en.dead)return; en.hp-=amount; en.flash=6;
+function damageEnemy(en,amount){ if(en.dead)return;
+  if(en.boss&&en.state==='land')amount*=1.6;            // дракон вразливіший на землі
+  en.hp-=amount; en.flash=6;
   floatText(en.mesh.position.clone().add(new THREE.Vector3(0,en.boss?2.5:1.8,0)),Math.round(amount),en.boss?'#ff8a5a':'#ffd34a');
   if(en.boss)updateBossBar(); if(en.hp<=0)killEnemy(en); }
-function killEnemy(en){ en.dead=true; scene.remove(en.mesh); G.kills++; gainXP(en.xp);
+function killEnemy(en){ en.dead=true; scene.remove(en.mesh); removeEnemyBar(en); G.kills++; gainXP(en.xp);
   dropGold(en.mesh.position,Math.round(en.gold*(1+0.25*PERK.fortune)));
   if(Math.random()<0.2)dropPotion(en.mesh.position);
   if(en.boss){G.dragonDead=true;victory();} questProgress('kill'); }
@@ -468,8 +512,8 @@ function makeDragon(){
 function summonDragon(){
   G.dragonSpawned=true; const y=surfaceY(0,0)+22; const mesh=makeDragon(); mesh.position.set(0,y,0); scene.add(mesh);
   dragon={type:'dragon',name:'Алдуїн Кубічний',mesh,hp:600+G.level*40,hpMax:600+G.level*40,dmg:18,xp:320,gold:250,
-    speed:6,vel:new THREE.Vector3(),dead:false,boss:true,atkCd:0,anim:0,state:'fly',timer:4,orbitA:0,flash:0};
-  enemies.push(dragon);
+    speed:6,vel:new THREE.Vector3(),dead:false,boss:true,atkCd:0,anim:0,state:'fly',timer:4,orbitA:0,flash:0,swoops:0,landT:0};
+  enemies.push(dragon); createEnemyBar(dragon);
   document.getElementById('bossbar').style.display='block'; updateBossBar();
   Audio.roar(); toast('СТАРОДАВНІЙ ДРАКОН ПРОБУДИВСЯ!'); subtitle("Алдуїн: «Zu'u Alduin, Thuri!»");
   renderQuests();
@@ -482,7 +526,7 @@ function updateBossBar(){ if(!dragon)return;
 const projectiles=[];
 function makeOrb(pos,col,emis){ const m=new THREE.Mesh(new THREE.SphereGeometry(0.25,10,10),
   new THREE.MeshStandardMaterial({color:col,emissive:emis||col,emissiveIntensity:1.2,roughness:0.4}));
-  m.position.copy(pos); scene.add(m); return m; }
+  m.add(makeGlow(col,2.2)); m.position.copy(pos); scene.add(m); return m; }
 function updateProjectiles(dt){
   for(const p of projectiles){ if(p.dead)continue; p.life-=dt; p.pos.addScaledVector(p.vel,dt); p.mesh.position.copy(p.pos);
     // слід
@@ -493,6 +537,27 @@ function updateProjectiles(dt){
         if(p.pos.distanceTo(c)<(en.boss?2.6:1.1)){ damageEnemy(en,p.dmg); if(p.slow)en.slowT=2.5; hitSpark(en.mesh.position); p.dead=true; scene.remove(p.mesh); break; } } }
     else { if(p.pos.distanceTo(camera.position)<1){ hurtPlayer(p.dmg); if(p.slow)playerSlow=2; p.dead=true; scene.remove(p.mesh); } }
     if(p.life<=0){ p.dead=true; scene.remove(p.mesh); } }
+}
+
+/* ============================= СКРИНІ ============================= */
+const chests=[];
+function makeChest(x,z){
+  const y=surfaceY(Math.floor(x),Math.floor(z))+1;
+  const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.5,0.5),M(0x6a4a28)); base.position.y=0.25; base.castShadow=true;
+  const lid=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.18,0.52),M(0x7a5a32)); lid.position.y=0.58;
+  const lock=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.18,0.06),M(0xe8c66a)); lock.position.set(0,0.42,0.27);
+  g.add(base); g.add(lid); g.add(lock); g.add(makeGlow(0xe8c66a,1.0));
+  g.position.set(x,y,z); scene.add(g);
+  chests.push({mesh:g,lid,taken:false,gold:randi(30,90),x,z});
+}
+function tryOpenChest(){
+  for(const c of chests){ if(c.taken)continue;
+    if(c.mesh.position.distanceTo(camera.position)<2.4){ c.taken=true; c.lid.rotation.x=-1.1;
+      const g=Math.round(c.gold*(1+0.25*PERK.fortune)); G.gold+=g; Audio.gold(); gainXP(20);
+      floatText(c.mesh.position.clone().add(new THREE.Vector3(0,1.2,0)),'Скриня: +'+g+'💰','#e8c66a');
+      toast('Знайдено скарб!'); return true; } }
+  return false;
 }
 
 /* ============================= ПІДБІРНІ ============================= */
@@ -526,12 +591,33 @@ function floatText(pos3,text,color){ const el=document.createElement('div'); el.
   el.style.cssText=`position:fixed;color:${color};font-weight:bold;font-size:18px;text-shadow:0 1px 3px #000;pointer-events:none;z-index:8;`;
   document.body.appendChild(el); floaters.push({el,pos:pos3.clone(),life:1}); }
 
+/* ---- смужки здоров'я ворогів ---- */
+function createEnemyBar(en){ const el=document.createElement('div'); el.className='ehp'+(en.boss?' boss':'');
+  el.innerHTML='<i></i>'; el.style.display='none'; document.body.appendChild(el); en.bar=el; en.barFill=el.firstChild; }
+function removeEnemyBar(en){ if(en.bar){ en.bar.remove(); en.bar=null; } }
+const _v=new THREE.Vector3();
+function updateEnemyBars(){ for(const en of enemies){ if(en.dead||!en.bar)continue;
+  _v.copy(en.mesh.position); _v.y+=en.boss?5.2:2.1; _v.project(camera);
+  if(_v.z>1||_v.z<-1){ en.bar.style.display='none'; continue; }
+  const dist=en.mesh.position.distanceTo(camera.position);
+  if(dist>(en.boss?80:24)){ en.bar.style.display='none'; continue; }
+  en.bar.style.display='block';
+  en.bar.style.left=(_v.x*0.5+0.5)*innerWidth+'px'; en.bar.style.top=(-_v.y*0.5+0.5)*innerHeight+'px';
+  en.barFill.style.width=clamp(en.hp/en.hpMax*100,0,100)+'%'; } }
+
+/* ---- підсвічування прицілу на ворогові ---- */
+function updateCrosshair(){ const dir=lookDir(); let aim=false;
+  for(const en of enemies){ if(en.dead)continue;
+    const to=en.mesh.position.clone().add(new THREE.Vector3(0,en.boss?1.5:1,0)).sub(camera.position);
+    if(to.length()<(en.boss?40:8)&&to.normalize().dot(dir)>0.985){ aim=true; break; } }
+  document.getElementById('crosshair').classList.toggle('target',aim); }
+
 /* ============================= ПРОКАЧКА ============================= */
 function gainXP(n){ G.xp+=n;
   while(G.xp>=G.xpNext){ G.xp-=G.xpNext; G.level++; G.xpNext=Math.round(G.xpNext*1.4);
     G.hpMax+=20+PERK.vitality*25*0; G.mpMax+=10; G.spMax+=10; G.perks++;
     G.hp=G.hpMax; G.mp=G.mpMax; G.sp=G.spMax; Audio.level();
-    toast('РІВЕНЬ '+G.level+'!'); subtitle('Ти отримав очко навичок (P)'); questProgress('level'); }
+    toast('РІВЕНЬ '+G.level+'!'); subtitle('Ти отримав очко навичок (P)'); questProgress('level'); saveGame(); }
   updateHUD(); }
 function applyPerk(id){ const def=PERK_DEF.find(d=>d.id===id); if(!def||G.perks<=0||PERK[id]>=def.max)return;
   PERK[id]++; G.perks--; Audio.gold();
@@ -610,7 +696,7 @@ function maybeSpawn(dt){ spawnTimer-=dt; const alive=enemies.filter(e=>!e.dead&&
 let playerSlow=0;
 function hurtPlayer(a){ if(G.over)return; G.hp-=a; damageFlash(); Audio.hurt(); updateHUD(); if(G.hp<=0)die(); }
 function die(){ G.over=true; document.exitPointerLock(); document.getElementById('deathPanel').classList.remove('hidden'); }
-function victory(){ G.over=true; document.exitPointerLock(); document.getElementById('bossbar').style.display='none';
+function victory(){ G.over=true; saveGame(); document.exitPointerLock(); document.getElementById('bossbar').style.display='none';
   const t=((performance.now()-G.startTime)/1000)|0;
   document.getElementById('winStats').textContent=`Рівень ${G.level} · Вбивств: ${G.kills} · Золота: ${G.gold} · Час: ${(t/60|0)}хв ${t%60}с`;
   document.getElementById('winPanel').classList.remove('hidden'); }
@@ -652,9 +738,23 @@ function updateDragon(d,dt){ d.timer-=dt; d.anim+=dt;
     d.mesh.position.x+=(tx-d.mesh.position.x)*dt*0.9; d.mesh.position.z+=(tz-d.mesh.position.z)*dt*0.9; d.mesh.position.y+=(cy-d.mesh.position.y)*dt*0.9;
     d.atkCd-=dt; if(d.atkCd<=0){ d.atkCd=2.2; breathFire(d); }
     if(d.timer<=0){ d.state='swoop'; d.timer=3.2; subtitle('Дракон пікірує!'); }
-  } else { const dir=toP.clone().normalize(); d.mesh.position.addScaledVector(dir,d.speed*dt*1.7);
-    if(dist<3.5){ hurtPlayer(d.dmg); d.state='fly'; d.timer=4; }
-    if(d.timer<=0){ d.state='fly'; d.timer=4; } }
+  } else if(d.state==='swoop'){ const dir=toP.clone().normalize(); d.mesh.position.addScaledVector(dir,d.speed*dt*1.7);
+    if(dist<3.5){ hurtPlayer(d.dmg); d.swoops++; nextDragonPhase(d); }
+    if(d.timer<=0){ d.swoops++; nextDragonPhase(d); }
+  } else { // 'land' — приземлений, вразливий
+    const gx=clamp(player.pos.x+Math.cos(d.orbitA)*6,-WSIZE+2,WSIZE-2);
+    const gz=clamp(player.pos.z+Math.sin(d.orbitA)*6,-WSIZE+2,WSIZE-2);
+    const gy=surfaceY(Math.floor(gx),Math.floor(gz))+2;
+    d.mesh.position.x+=(gx-d.mesh.position.x)*dt*2; d.mesh.position.z+=(gz-d.mesh.position.z)*dt*2;
+    d.mesh.position.y+=(gy-d.mesh.position.y)*dt*3;
+    d.atkCd-=dt; if(dist<5&&d.atkCd<=0){ d.atkCd=1.4; hurtPlayer(d.dmg*0.8); }
+    if(d.timer<=0){ d.state='fly'; d.timer=4.5; subtitle('Дракон знову злітає!'); Audio.roar(); }
+  }
+}
+function nextDragonPhase(d){
+  if(d.swoops>=2){ d.swoops=0; d.state='land'; d.timer=4.5; d.orbitA=Math.random()*TAU;
+    subtitle('Дракон приземлився — атакуй його!'); Audio.roar(); }
+  else { d.state='fly'; d.timer=4; }
 }
 function breathFire(d){ const dir=camera.position.clone().sub(d.mesh.position).normalize();
   const o=d.mesh.position.clone().add(dir.clone().multiplyScalar(3)); Audio.fire();
@@ -682,6 +782,30 @@ const DIRS=['Пн','ПнСх','Сх','ПдСх','Пд','ПдЗх','Зх','ПнЗ
 function updateCompass(){ let a=((-player.yaw)%TAU+TAU)%TAU; const idx=Math.round(a/(TAU/8))%8;
   document.getElementById('compassDir').textContent=DIRS[idx]; }
 
+/* ---- мінікарта ---- */
+const mmCanvas=document.getElementById('minimapCanvas'), mmCtx=mmCanvas.getContext('2d');
+const MM_R=80, MM_RANGE=60;        // піксельний радіус / світовий радіус
+function dot(wx,wz,col,size){
+  const dx=wx-player.pos.x, dz=wz-player.pos.z;
+  // повертаємо так, щоб напрямок гравця був угорі
+  const ca=Math.cos(player.yaw), sa=Math.sin(player.yaw);
+  let rx=dx*ca - dz*sa, rz=dx*sa + dz*ca;
+  const sc=MM_R/MM_RANGE; let px=MM_R+rx*sc, py=MM_R+rz*sc;
+  if(Math.hypot(px-MM_R,py-MM_R)>MM_R-3) return;   // поза колом
+  mmCtx.fillStyle=col; mmCtx.beginPath(); mmCtx.arc(px,py,size||3,0,TAU); mmCtx.fill();
+}
+function drawMinimap(){
+  mmCtx.clearRect(0,0,160,160);
+  // сітка-фон
+  mmCtx.fillStyle='rgba(40,60,40,.25)'; mmCtx.beginPath(); mmCtx.arc(MM_R,MM_R,MM_R-2,0,TAU); mmCtx.fill();
+  dot(0,0,'#e8c66a',4);                                   // вівтар (центр світу)
+  for(const c of chests){ if(!c.taken)dot(c.mesh.position.x,c.mesh.position.z,'#caa24a',3); }
+  for(const en of enemies){ if(en.dead)continue;
+    dot(en.mesh.position.x,en.mesh.position.z,en.boss?'#ff7a3a':'#e0594b',en.boss?6:3); }
+  // гравець (стрілка вгору)
+  mmCtx.fillStyle='#9ec4e8'; mmCtx.beginPath(); mmCtx.moveTo(MM_R,MM_R-6); mmCtx.lineTo(MM_R-4,MM_R+5); mmCtx.lineTo(MM_R+4,MM_R+5); mmCtx.closePath(); mmCtx.fill();
+}
+
 function updateDayNight(dt){
   G.time=(G.time+dt/120)%1;                       // повний цикл ~2 хв
   const ang=G.time*TAU;                            // 0=схід
@@ -695,6 +819,12 @@ function updateDayNight(dt){
   ambient.intensity=lerp(0.08,0.2,day);
   moonLight.intensity=lerp(0.35,0,day);
   moonLight.position.copy(moon.position);
+  lantern.intensity=lerp(1.7,0,clamp(day*1.5,0,1));
+  lantern.position.copy(camera.position);
+  // нічні іскри-світлячки
+  if(day<0.2&&Math.random()<0.25){ const a=Math.random()*TAU,r=rand(3,12);
+    const m=makeGlow(0xffcc66,0.4); m.position.set(player.pos.x+Math.cos(a)*r,player.pos.y+rand(0.5,3),player.pos.z+Math.sin(a)*r);
+    scene.add(m); particles.push({mesh:m,vel:new THREE.Vector3(rand(-.2,.2),rand(.2,.6),rand(-.2,.2)),life:rand(1.2,2.2),grav:false}); }
   // кольори
   const dayTop=new THREE.Color(0x2a6bb0), nightTop=new THREE.Color(0x05080f);
   const dayBot=new THREE.Color(0xcfe6ff), nightBot=new THREE.Color(0x101826);
@@ -713,7 +843,7 @@ function updateDayNight(dt){
 }
 
 /* ============================= ХОДЬБА / КАМЕРА ============================= */
-let walkPhase=0;
+let walkPhase=0, saveAccum=0;
 function update(dt){
   // реген
   G.sp=clamp(G.sp+18*dt,0,G.spMax); G.mp=clamp(G.mp+8*dt,0,G.mpMax);
@@ -747,11 +877,15 @@ function update(dt){
   stars.position.copy(camera.position);
 
   maybeSpawn(dt); updateEnemies(dt); updateProjectiles(dt); updateExtras(dt); cleanup();
-  updateCompass(); updateDayNight(dt);
+  updateCompass(); updateDayNight(dt); drawMinimap(); updateEnemyBars(); updateCrosshair();
   for(const c of clouds){ c.position.x+=dt*1.2; if(c.position.x>180)c.position.x=-180; }
+  // анімація води
+  const wm=instMeshes[7]; if(wm)wm.material.forEach(mt=>{ if(mt.map){ mt.map.offset.x+=dt*0.04; mt.map.offset.y+=dt*0.025; } });
 
   if(swordSwing>0)swordSwing=Math.max(0,swordSwing-dt*4);
   updateViewmodel(dt);
+
+  saveAccum+=dt; if(saveAccum>10){ saveAccum=0; saveGame(); }   // автозбереження
 
   const cd=G.shoutReady-performance.now();
   document.getElementById('shoutCd').textContent=cd>0?`Крик: ${(cd/1000).toFixed(1)}с`:'Крик готовий (Q)';
@@ -775,7 +909,8 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
   vmCam.aspect=innerWidth/innerHeight; vmCam.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
 /* ============================= СТАРТ ============================= */
-function resetGame(){
+function resetRun(){
+  for(const en of enemies)removeEnemyBar(en);
   for(const a of [enemies,projectiles,particles,pickups]) for(const o of a) if(o.mesh)scene.remove(o.mesh);
   for(const f of floaters)f.el.remove();
   enemies.length=projectiles.length=particles.length=pickups.length=floaters.length=0; dragon=null;
@@ -785,31 +920,72 @@ function resetGame(){
   for(const k in PERK)PERK[k]=0;
   QUESTS.forEach(q=>{q.done=false;q.prog=q.kind==='level'?1:0;});
   const sy=surfaceY(0,8)+2; player.pos.set(0,sy,8); player.vel.set(0,0,0); player.yaw=Math.PI; player.pitch=0;
-  playerSlow=0; spawnTimer=3;
+  playerSlow=0; spawnTimer=3; saveAccum=0;
   document.getElementById('bossbar').style.display='none';
   buildHotbar(); renderQuests(); updateHUD();
   spawnEnemy('bandit',10,0); spawnEnemy('draugr',-8,6);
 }
-function startGame(){ if(Audio.ctx&&Audio.ctx.state==='suspended')Audio.ctx.resume();
-  ['startMenu','deathPanel','winPanel','pauseMenu','skillsPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-  skillsOpen=false; resetGame(); canvas.requestPointerLock();
-  toast('Прокинься, Довакіне!'); subtitle('Видобувай, будуй, бийся. Поклич дракона біля вежі.'); }
+function applySave(sv){
+  G.level=sv.level; G.xp=sv.xp; G.xpNext=sv.xpNext; G.gold=sv.gold; G.perks=sv.perks;
+  G.hpMax=sv.hpMax; G.mpMax=sv.mpMax; G.spMax=sv.spMax; G.kills=sv.kills||0; G.dragonDead=!!sv.dragonDead;
+  Object.assign(PERK,sv.perkLevels||{}); G.hp=G.hpMax; G.mp=G.mpMax; G.sp=G.spMax;
+  buildHotbar(); renderQuests(); updateHUD();
+}
+function beginPlay(){ if(Audio.ctx&&Audio.ctx.state==='suspended')Audio.ctx.resume();
+  ['startMenu','deathPanel','winPanel','pauseMenu','skillsPanel','settingsPanel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  skillsOpen=false; settingsFrom='menu'; canvas.requestPointerLock(); }
+function newGame(){ Audio.init(); regenerateWorld((Math.random()*1e9)|0); resetRun(); beginPlay();
+  saveGame(); toast('Прокинься, Довакіне!'); subtitle('Видобувай, будуй, бийся. Поклич дракона біля вежі.'); }
+function continueGame(){ Audio.init(); const sv=loadSave(); if(!sv){newGame();return;}
+  resetRun(); applySave(sv); beginPlay();
+  toast('З поверненням, Довакіне!'); subtitle('Твоя пригода триває.'); }
+function respawn(){ resetRun(); beginPlay(); toast('Відродження'); }
 function quitToMenu(){ G.started=false; G.over=false; G.paused=false;
-  document.getElementById('pauseMenu').classList.add('hidden'); document.getElementById('startMenu').classList.remove('hidden'); document.exitPointerLock(); }
+  document.getElementById('pauseMenu').classList.add('hidden');
+  document.getElementById('continueBtn').style.display=hasSave()?'block':'none';
+  document.getElementById('startMenu').classList.remove('hidden'); document.exitPointerLock(); }
 
-document.getElementById('startBtn').onclick=()=>{ Audio.init(); startGame(); };
-document.getElementById('respawnBtn').onclick=startGame;
-document.getElementById('winBtn').onclick=startGame;
+/* ---- меню налаштувань ---- */
+let settingsFrom='menu';
+function applyAllSettings(){ if(Audio.master)Audio.master.gain.value=Settings.vol;
+  camera.fov=Settings.fov; camera.updateProjectionMatrix();
+  scene.fog.near=Settings.view*0.35; scene.fog.far=Settings.view; }
+function syncSettingsUI(){
+  setSens.value=Settings.sens; setVol.value=Settings.vol; setFov.value=Settings.fov; setView.value=Settings.view;
+  setSensV.textContent=Settings.sens.toFixed(1); setVolV.textContent=Math.round(Settings.vol*100)+'%';
+  setFovV.textContent=Settings.fov; setViewV.textContent=Settings.view; }
+function openSettings(){ settingsFrom=G.paused?'pause':'menu'; syncSettingsUI();
+  document.getElementById('settingsPanel').classList.remove('hidden'); }
+function closeSettings(){ document.getElementById('settingsPanel').classList.add('hidden'); saveSettings(); }
+const setSens=document.getElementById('setSens'),setVol=document.getElementById('setVol'),
+      setFov=document.getElementById('setFov'),setView=document.getElementById('setView'),
+      setSensV=document.getElementById('setSensV'),setVolV=document.getElementById('setVolV'),
+      setFovV=document.getElementById('setFovV'),setViewV=document.getElementById('setViewV');
+setSens.oninput=()=>{ Settings.sens=+setSens.value; syncSettingsUI(); };
+setVol.oninput=()=>{ Settings.vol=+setVol.value; applyAllSettings(); syncSettingsUI(); };
+setFov.oninput=()=>{ Settings.fov=+setFov.value; applyAllSettings(); syncSettingsUI(); };
+setView.oninput=()=>{ Settings.view=+setView.value; applyAllSettings(); syncSettingsUI(); };
+
+document.getElementById('startBtn').onclick=newGame;
+document.getElementById('continueBtn').onclick=continueGame;
+document.getElementById('respawnBtn').onclick=respawn;
+document.getElementById('winBtn').onclick=newGame;
 document.getElementById('resumeBtn').onclick=togglePause;
 document.getElementById('quitBtn').onclick=quitToMenu;
 document.getElementById('closeSkills').onclick=toggleSkills;
+document.getElementById('settingsBtn').onclick=openSettings;
+document.getElementById('closeSettings').onclick=closeSettings;
 
 /* ============================= ІНІЦІАЛІЗАЦІЯ ============================= */
 function init(){
-  buildInstancedMeshes();
+  buildInstancedMeshes(); applyAllSettings();
   document.getElementById('loadFill').style.width='30%';
-  setTimeout(()=>{ generateWorld(()=>{}); document.getElementById('loadFill').style.width='80%';
+  setTimeout(()=>{
+    const sv=loadSave(); const seed=sv?sv.seed:((Math.random()*1e9)|0);
+    G.seed=seed; RNG=mulberry32(seed); generateWorld(()=>{});
+    document.getElementById('loadFill').style.width='80%';
     buildViewmodel(); buildHotbar(); renderQuests();
+    document.getElementById('continueBtn').style.display=sv?'block':'none';
     document.getElementById('loadFill').style.width='100%';
     setTimeout(()=>document.getElementById('loadingOverlay').classList.add('hidden'),250);
     requestAnimationFrame(loop);
