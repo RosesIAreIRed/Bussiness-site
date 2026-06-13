@@ -50,7 +50,8 @@ const G={started:false,over:false,paused:false,
   level:1,xp:0,xpNext:100,gold:0,perks:0,slot:0,
   shoutReady:0,kills:0,blocksMined:0,blocksPlaced:0,
   dragonSpawned:false,dragonDead:false,startTime:0,time:0.28,seed:12345,
-  weapon:'iron_sword',armorItem:null,hasBow:false,defense:0};
+  weapon:'iron_sword',armorItem:null,hasBow:false,defense:0,
+  food:100,foodMax:100,onFire:0,weather:'clear',weatherT:20};
 const SHOUT_CD_BASE=6000;
 // перки (рівні)
 const PERK={might:0,destruction:0,vitality:0,swift:0,thuum:0,fortune:0};
@@ -81,6 +82,10 @@ const ITEMS={
   meat:{n:'Сире м\'ясо',i:'🥩'}, cookedmeat:{n:'Печеня',i:'🍖'}, hide:{n:'Шкура',i:'🟤'}, feather:{n:'Перо',i:'🪶'}, bone:{n:'Кістка',i:'🦴'},
   glass:{n:'Скло',i:'🪟'}, brick:{n:'Цегла',i:'🧱'}, torch:{n:'Факел',i:'🔥'},
   arrow:{n:'Стріли',i:'➶'}, health_potion:{n:'Зілля',i:'🧪'},
+  obsidian:{n:'Обсидіан',i:'🟪'}, glowstone:{n:'Світлокамінь',i:'💡'}, clay:{n:'Глина',i:'🟫'}, ice:{n:'Лід',i:'🧊'}, ash:{n:'Попіл',i:'🌫️'},
+  mana_potion:{n:'Зілля мани',i:'🔮'},
+  obsidian_sword:{n:'Обсидіановий меч',i:'🗡️',weapon:90},
+  obsidian_armor:{n:'Обсидіанова броня',i:'🛡️',armor:0.60},
   wood_sword:{n:'Дерев\'яний меч',i:'🗡️',weapon:18},
   stone_sword:{n:'Кам\'яний меч',i:'⚔️',weapon:30},
   iron_sword:{n:'Залізний меч',i:'⚔️',weapon:44},
@@ -100,7 +105,8 @@ function takeItems(req){ for(const k in req)INV[k]=(INV[k]||0)-req[k]; }
 // що випадає з блоку при видобутку
 const DROP={1:'dirt',3:'stone',4:'sand',5:'wood',6:'leaves',9:'snow',
   11:'coal',12:'iron',13:'goldore',14:'gem',15:'plank',16:'fiber',17:'flower',18:'glass',19:'brick',
-  21:'wood',22:'leaves',23:'wood',24:'leaves'};
+  21:'wood',22:'leaves',23:'wood',24:'leaves',
+  26:'obsidian',27:'stone',28:'dirt',29:'ice',30:'glowstone',31:'stone',32:'clay'};
 
 /* ---- рецепти крафту ---- */
 const RECIPES=[
@@ -121,6 +127,9 @@ const RECIPES=[
   {out:'leather_armor',n:1,req:{hide:5},gear:true},
   {out:'iron_armor',n:1,req:{iron:6,hide:2},gear:true},
   {out:'gem_armor',n:1,req:{gem:3,iron:3},gear:true},
+  {out:'obsidian_sword',n:1,req:{obsidian:3,gem:1,stick:1},gear:true},
+  {out:'obsidian_armor',n:1,req:{obsidian:6,iron:2},gear:true},
+  {out:'mana_potion',n:1,req:{glowstone:1,flower:1},potion:'mana'},
 ];
 
 /* ============================= НАЛАШТУВАННЯ ============================= */
@@ -134,7 +143,8 @@ function saveGame(){ try{ localStorage.setItem('skyrimcraft.save',JSON.stringify
   level:G.level,xp:G.xp,xpNext:G.xpNext,gold:G.gold,perks:G.perks,
   hpMax:G.hpMax,mpMax:G.mpMax,spMax:G.spMax,kills:G.kills,seed:G.seed,
   dragonDead:G.dragonDead,perkLevels:{...PERK},
-  inv:{...INV},weapon:G.weapon,armorItem:G.armorItem,hasBow:G.hasBow,defense:G.defense})); }catch(e){} }
+  inv:{...INV},weapon:G.weapon,armorItem:G.armorItem,hasBow:G.hasBow,defense:G.defense,
+  food:G.food,foodMax:G.foodMax})); }catch(e){} }
 function loadSave(){ try{ return JSON.parse(localStorage.getItem('skyrimcraft.save')); }catch(e){ return null; } }
 function hasSave(){ return !!loadSave(); }
 
@@ -164,6 +174,17 @@ const vmScene=new THREE.Scene();
 const vmCam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.01,10);
 vmScene.add(new THREE.HemisphereLight(0xffffff,0x444444,1.1));
 const vmLight=new THREE.DirectionalLight(0xffffff,0.7); vmLight.position.set(1,2,2); vmScene.add(vmLight);
+
+/* ---- постпроцесинг: bloom ---- */
+let composer=null, bloomPass=null;
+function setupComposer(){
+  if(typeof THREE.EffectComposer!=='function'||typeof THREE.UnrealBloomPass!=='function'){ console.warn('Bloom недоступний'); return; }
+  composer=new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene,camera));
+  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.65,0.55,0.78);
+  composer.addPass(bloomPass);
+  composer.setSize(innerWidth,innerHeight);
+}
 
 /* ---- освітлення ---- */
 const sun=new THREE.DirectionalLight(0xfff2d6,1.0);
@@ -315,6 +336,14 @@ const BLOCKS={
   22:{name:'хвоя',  mats:()=>faceMats(noiseTex(0x244f33,0.1),noiseTex(0x2a5a3a,0.1),noiseTex(0x1e4530,0.1))},
   23:{name:'береза',mats:()=>faceMats(noiseTex(0xe6e2d8,0.06),logTopTex(0xd8cdb0),noiseTex(0xd0ccc0,0.06))},
   24:{name:'березове листя',mats:()=>faceMats(noiseTex(0x6a9a3a,0.12),noiseTex(0x7aac46,0.12),noiseTex(0x5e8a33,0.12))},
+  25:{name:'лава',  mats:()=>faceMats(noiseTex(0xff5a1a,0.18),noiseTex(0xff7a2a,0.2),noiseTex(0xd83a10,0.18),{emissive:0xff5a1a,ei:1.6})},
+  26:{name:'обсидіан',mats:()=>faceMats(noiseTex(0x241f30,0.06),noiseTex(0x2c2640,0.06),noiseTex(0x1c1828,0.06),{rough:0.25,emissive:0x140a22,ei:0.3})},
+  27:{name:'базальт',mats:()=>faceMats(noiseTex(0x3a3a40,0.08),noiseTex(0x44444a,0.08),noiseTex(0x303036,0.08))},
+  28:{name:'багно', mats:()=>faceMats(noiseTex(0x4a3a2a,0.08),noiseTex(0x52422e,0.08),noiseTex(0x40321f,0.08))},
+  29:{name:'лід',   mats:()=>faceMats(noiseTex(0xaad6f0,0.05),noiseTex(0xc0e4fa,0.05),noiseTex(0x9ac8e8,0.05),{transparent:true,opacity:0.78,rough:0.05})},
+  30:{name:'світлокамінь',mats:()=>faceMats(noiseTex(0xffe07a,0.1),noiseTex(0xffe88a,0.1),noiseTex(0xf0c85a,0.1),{emissive:0xffd24a,ei:1.4})},
+  31:{name:'мох-камінь',mats:()=>faceMats(noiseTex(0x6a7a4a,0.12),noiseTex(0x5a6a3a,0.12),noiseTex(0x7a7a72,0.1))},
+  32:{name:'глина', mats:()=>faceMats(noiseTex(0x9a8a7a,0.05),noiseTex(0xa49484,0.05),noiseTex(0x8a7a6a,0.05))},
 };
 
 /* ============================= СВІТ ============================= */
@@ -401,13 +430,20 @@ function genHeight(x,z){
   return Math.round(6 + Math.sin(x*0.12)*2.5 + Math.cos(z*0.11)*2.5
     + Math.sin((x+z)*0.05)*3 + Math.sin(x*0.31)*Math.cos(z*0.27)*1.5);
 }
-// біом: 'desert' | 'plains' | 'forest' | 'snow' (за висотою + шумом)
+// спеціальні осередки біомів (вибираються за сідом у generateWorld)
+let volcanoCenters=[], swampCenters=[];
+function nearCenter(list,x,z,r){ for(const c of list){ if(Math.hypot(x-c[0],z-c[1])<r)return true; } return false; }
+// біом: desert | plains | forest | snow | volcano | swamp | meadow
 function biomeAt(x,z){
+  if(nearCenter(volcanoCenters,x,z,12)) return 'volcano';
   const h=genHeight(x,z);
+  if(nearCenter(swampCenters,x,z,14)&&h<=7) return 'swamp';
   if(h<=4) return 'desert';
   if(h>=11) return 'snow';
   const m=Math.sin(x*0.045)*Math.cos(z*0.05)+Math.sin((x-z)*0.03);
-  return m>0.15?'forest':'plains';
+  if(m>0.15) return 'forest';
+  const f=Math.sin(x*0.08+1.7)*Math.cos(z*0.07-0.6);
+  return f>0.45?'meadow':'plains';
 }
 function buildTree(x,h,z,kind){
   if(kind==='pine'){ const th=5+Math.floor(RNG()*3);
@@ -426,31 +462,51 @@ function buildTree(x,h,z,kind){
   }
 }
 function generateWorld(onProgress){
+  // осередки спеціальних біомів
+  volcanoCenters=[]; swampCenters=[];
+  const farPoint=()=>{ let x,z; do{ x=Math.round(RNG()*WSIZE*1.6-WSIZE*0.8); z=Math.round(RNG()*WSIZE*1.6-WSIZE*0.8); }while(Math.hypot(x,z)<30); return [x,z]; };
+  for(let i=0;i<2;i++)volcanoCenters.push(farPoint());
+  for(let i=0;i<3;i++)swampCenters.push(farPoint());
   for(let x=-WSIZE;x<=WSIZE;x++)for(let z=-WSIZE;z<=WSIZE;z++){
     const h=genHeight(x,z), bm=biomeAt(x,z);
     for(let y=h;y>h-4;y--){
       let t=(y===h)?1:2;
       if(bm==='desert'&&y>=h-1)t=4;
       if(bm==='snow'&&y===h)t=9;
+      if(bm==='swamp'&&y>=h-1)t=28;            // багно
+      if(bm==='volcano'){ t=(y===h)?27:27; if(RNG()<0.15)t=26; } // базальт/обсидіан
       if(y<h-1&&RNG()<0.07){ const r=RNG();   // руди глибше
-        t = r<0.45?11 : r<0.75?12 : r<0.92?13 : 14; }
+        t = r<0.4?11 : r<0.68?12 : r<0.86?13 : r<0.95?14 : 30; }
       addBlock(x,y,z,t,true);
     }
-    if(h<4){ for(let y=h+1;y<=4;y++)addBlock(x,y,z,7,true); }
-    if(h<=4) continue;                          // на воді/піску дерев нема (крім кактусів нижче)
+    if(bm==='swamp'){ for(let y=h+1;y<=6;y++)addBlock(x,y,z,7,true); }    // темна вода болота
+    else if(h<4){ for(let y=h+1;y<=4;y++)addBlock(x,y,z,7,true); }
+    if(bm==='volcano'){
+      // лавові западини
+      const vc=volcanoCenters.reduce((a,c)=>{const d=Math.hypot(x-c[0],z-c[1]);return d<a.d?{d,c}:a;},{d:1e9}).c;
+      if(vc&&Math.hypot(x-vc[0],z-vc[1])<4)addBlock(x,h,z,25,true);     // лавове озеро в центрі
+      else if(RNG()<0.03)addBlock(x,h+1,z,30,true);                     // світлокамінь
+      else if(RNG()<0.02){ const ch=1+Math.floor(RNG()*3); for(let i=1;i<=ch;i++)addBlock(x,h+i,z,26,true); } // обсидіанові шпилі
+      continue;
+    }
+    if(h<=4&&bm!=='swamp') continue;
     // дерева за біомом
-    const tp=bm==='forest'?0.05:bm==='plains'?0.012:0;
-    if(tp>0&&RNG()<tp){ const kind=bm==='snow'?'pine':(RNG()<0.3?'birch':(RNG()<0.5?'pine':'oak')); buildTree(x,h,z,kind); }
+    const tp=bm==='forest'?0.06:bm==='plains'?0.012:bm==='swamp'?0.04:bm==='meadow'?0.008:0;
+    if(tp>0&&RNG()<tp){
+      if(bm==='swamp'){ const th=4+Math.floor(RNG()*3); for(let i=1;i<=th;i++)addBlock(x,h+i,z,5,true);
+        if(RNG()<0.5)addBlock(x,h+th+1,z,6,true); }                     // сухі дерева болота
+      else { const kind=bm==='snow'?'pine':(RNG()<0.3?'birch':(RNG()<0.5?'pine':'oak')); buildTree(x,h,z,kind); }
+    }
     else if(bm==='snow'&&RNG()<0.03){ buildTree(x,h,z,'pine'); }
-    // флора
     else { const top=getBlock(x,h,z);
+      const fd = bm==='meadow'?0.45 : 0.16;          // густе різнотрав'я на лугах
       if(top===1){ const r=RNG();
-        if(r<0.10)addPlant('tall_grass',x,h+1,z,true);
-        else if(r<0.13)addPlant('flower_red',x,h+1,z,true);
-        else if(r<0.16)addPlant('flower_yellow',x,h+1,z,true);
-        else if(bm==='forest'&&r<0.18)addPlant('mushroom',x,h+1,z,true);
-      } else if(bm==='desert'&&RNG()<0.015){   // кактус
-        const ch=1+Math.floor(RNG()*2); for(let i=1;i<=ch;i++)addBlock(x,h+i,z,16,true);
+        if(r<fd*0.6)addPlant('tall_grass',x,h+1,z,true);
+        else if(r<fd*0.78)addPlant('flower_red',x,h+1,z,true);
+        else if(r<fd*0.95)addPlant('flower_yellow',x,h+1,z,true);
+        else if((bm==='forest'||bm==='swamp')&&r<fd+0.04)addPlant('mushroom',x,h+1,z,true);
+      } else if(bm==='swamp'&&top===28&&RNG()<0.06){ addPlant('tall_grass',x,h+1,z,true);
+      } else if(bm==='desert'&&RNG()<0.015){ const ch=1+Math.floor(RNG()*2); for(let i=1;i<=ch;i++)addBlock(x,h+i,z,16,true);
       } else if(bm==='desert'&&RNG()<0.02){ addPlant('deadbush',x,h+1,z,true); }
     }
   }
@@ -483,7 +539,7 @@ function regenerateWorld(seed){ G.seed=seed; RNG=mulberry32(seed); clearWorld();
 /* ============================= ГРАВЕЦЬ ============================= */
 const player={pos:new THREE.Vector3(0,25,8),vel:new THREE.Vector3(),onGround:false,
   yaw:Math.PI,pitch:0,height:1.7,radius:0.3};
-function solidAt(x,y,z){ const b=getBlock(Math.floor(x),Math.floor(y),Math.floor(z)); return b!==0&&b!==7&&b!==8; }
+function solidAt(x,y,z){ const b=getBlock(Math.floor(x),Math.floor(y),Math.floor(z)); return b!==0&&b!==7&&b!==8&&b!==25; }
 function tryMove(axis,amount){
   const p=player.pos,r=player.radius,h=player.height; p[axis]+=amount;
   const minX=Math.floor(p.x-r),maxX=Math.floor(p.x+r),minZ=Math.floor(p.z-r),maxZ=Math.floor(p.z+r),
@@ -542,6 +598,9 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyP')toggleSkills();
   if(e.code==='KeyC')toggleCraft();
   if(e.code==='KeyG')shootBow();
+  if(e.code==='KeyV')castLightning();
+  if(e.code==='KeyH')castHeal();
+  if(e.code==='KeyZ')whirlwindSprint();
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 canvas.addEventListener('click',()=>{ if(G.started&&!G.over&&!G.paused&&!pointerLocked)canvas.requestPointerLock(); });
@@ -620,16 +679,49 @@ function shootBow(){
   const m=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.5),new THREE.MeshStandardMaterial({color:0x8a6a3a,roughness:0.8}));
   m.position.copy(o); scene.add(m);
   projectiles.push({pos:o,vel:dir.clone().multiplyScalar(42),life:2.5,dmg,friendly:true,kind:'arrow',arrow:true,mesh:m}); }
-function castFire(){ const cost=Math.round(20*(1-0.1*PERK.destruction)); if(G.mp<cost){toast('Недостатньо мани');return;}
+function ensureMana(cost){ if(G.mp>=cost)return true;
+  if(itemCount('mana_potion')>0){ takeItems({mana_potion:1}); G.mp=clamp(G.mp+70,0,G.mpMax); buildHotbar(); updateResStrip(); floatText(camera.position,'+70 🔮','#9fb6ff'); return G.mp>=cost; }
+  toast('Недостатньо мани'); return false; }
+function castFire(){ const cost=Math.round(20*(1-0.1*PERK.destruction)); if(!ensureMana(cost))return;
   G.mp-=cost; Audio.fire(); const dir=lookDir(), o=camera.position.clone();
   const dmg=(30+G.level*5)*(1+0.2*PERK.destruction);
   projectiles.push({pos:o,vel:dir.clone().multiplyScalar(30),life:1.5,dmg,friendly:true,kind:'fire',mesh:makeOrb(o,0xff7722,0x441100)});
   subtitle("Yol! — Полум'я"); }
-function castFrost(){ const cost=Math.round(18*(1-0.1*PERK.destruction)); if(G.mp<cost){toast('Недостатньо мани');return;}
+function castFrost(){ const cost=Math.round(18*(1-0.1*PERK.destruction)); if(!ensureMana(cost))return;
   G.mp-=cost; Audio.frost(); const dir=lookDir(), o=camera.position.clone();
   const dmg=(20+G.level*4)*(1+0.2*PERK.destruction);
   projectiles.push({pos:o,vel:dir.clone().multiplyScalar(34),life:1.4,dmg,friendly:true,kind:'frost',slow:true,mesh:makeOrb(o,0x88ddff,0x113344)});
   subtitle('Fo! — Крижаний подих'); }
+function castLightning(){ const cost=Math.round(28*(1-0.1*PERK.destruction)); if(!ensureMana(cost))return;
+  G.mp-=cost; Audio.blip(1200,0.2,'sawtooth',0.3,0.4); Audio.noise(0.2,0.2,3000);
+  const dmg=(26+G.level*5)*(1+0.2*PERK.destruction);
+  // ланцюг до 3 найближчих ворогів попереду
+  const dir=lookDir(); let from=camera.position.clone(); const hit=[];
+  let pool=enemies.concat(critters).filter(e=>!e.dead);
+  for(let n=0;n<3;n++){ let best=null,bd=18;
+    for(const en of pool){ if(hit.includes(en))continue;
+      const to=en.mesh.position.clone().add(new THREE.Vector3(0,1,0)).sub(from); const d=to.length();
+      if(d<bd && (n>0 || to.clone().normalize().dot(dir)>0.4)){ bd=d; best=en; } }
+    if(!best)break; hit.push(best); const tp=best.mesh.position.clone().add(new THREE.Vector3(0,1,0));
+    boltLine(from,tp); damageEnemy(best,dmg*(1-n*0.2)); hitSpark(best.mesh.position); from=tp; }
+  if(!hit.length)boltLine(camera.position.clone(),camera.position.clone().add(dir.clone().multiplyScalar(12)));
+  subtitle('Strun! — Блискавка'); shoutFlashColor('rgba(160,200,255,.4)'); }
+function boltLine(a,b){ const mid=a.clone().add(b).multiplyScalar(0.5); const len=a.distanceTo(b);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,len),new THREE.MeshBasicMaterial({color:0xcfe0ff}));
+  m.position.copy(mid); m.lookAt(b); m.add(makeGlow(0xaaccff,1.5)); scene.add(m);
+  particles.push({mesh:m,vel:new THREE.Vector3(0,0,0),life:0.15,grav:false}); }
+function castHeal(){ const cost=Math.round(30*(1-0.1*PERK.destruction)); if(!ensureMana(cost))return;
+  if(G.hp>=G.hpMax){ toast('Здоров\'я повне'); return; }
+  G.mp-=cost; const amt=40+G.level*4; G.hp=clamp(G.hp+amt,0,G.hpMax); G.onFire=0; Audio.gold();
+  floatText(camera.position,'+'+amt+' ♥','#7af0a0'); subtitle('Grah! — Лікування'); updateHUD();
+  for(let i=0;i<8;i++){ const m=makeGlow(0x7af0a0,0.4); m.position.set(camera.position.x+rand(-.5,.5),camera.position.y+rand(-1,.5),camera.position.z+rand(-.5,.5));
+    scene.add(m); particles.push({mesh:m,vel:new THREE.Vector3(0,1.5,0),life:0.6,grav:false}); } }
+let sprintReady=0;
+function whirlwindSprint(){ if(performance.now()<sprintReady){ toast('Ривок перезаряджається'); return; }
+  if(G.sp<25){ toast('Замало витривалості'); return; } G.sp-=25; sprintReady=performance.now()+4000;
+  const dir=lookDir(); dir.y=0; dir.normalize();
+  player.vel.x+=dir.x*26; player.vel.z+=dir.z*26; player.vel.y=4;
+  Audio.shout(); subtitle('WULD NAH KEST! — Ривок'); shoutFlashColor('rgba(180,220,255,.35)'); }
 function doShout(){ const cd=SHOUT_CD_BASE-PERK.thuum*1000;
   if(performance.now()<G.shoutReady){toast('Крик ще не готовий');return;}
   G.shoutReady=performance.now()+cd; Audio.shout(); subtitle('FUS RO DAH!'); shoutFlash();
@@ -640,11 +732,14 @@ function doShout(){ const cd=SHOUT_CD_BASE-PERK.thuum*1000;
 function drinkPotion(){
   if(itemCount('health_potion')>0){ takeItems({health_potion:1}); G.hp=clamp(G.hp+60,0,G.hpMax); Audio.gold();
     toast('+60 здоров\'я'); floatText(camera.position,'+60 ♥','#37c46b'); buildHotbar(); updateResStrip(); return; }
-  if(itemCount('cookedmeat')>0){ takeItems({cookedmeat:1}); G.hp=clamp(G.hp+30,0,G.hpMax); Audio.gold();
-    toast('+30 здоров\'я (печеня)'); floatText(camera.position,'+30 ♥','#37c46b'); updateResStrip(); return; }
+  if(itemCount('cookedmeat')>0){ takeItems({cookedmeat:1}); G.hp=clamp(G.hp+30,0,G.hpMax); G.food=clamp(G.food+45,0,G.foodMax); Audio.gold();
+    toast('+30 ♥ / +45 ситості (печеня)'); floatText(camera.position,'+30 ♥','#37c46b'); buildHotbar(); updateResStrip(); return; }
+  if(itemCount('meat')>0){ takeItems({meat:1}); G.food=clamp(G.food+20,0,G.foodMax); G.hp=clamp(G.hp+6,0,G.hpMax); Audio.gold();
+    toast('+20 ситості (сире м\'ясо)'); updateResStrip(); return; }
   if(G.gold>=25){ G.gold-=25; G.hp=clamp(G.hp+50,0,G.hpMax); Audio.gold(); toast('+50 здоров\'я (за золото)'); floatText(camera.position,'+50','#37c46b'); return; }
-  toast('Немає зілля. Скрафти його (C)'); }
+  toast('Немає їжі/зілля. Скрафти або вполюй (C)'); }
 function interact(){
+  if(trader&&trader.mesh.position.distanceTo(camera.position)<3.2){ toggleTrade(); return; }
   for(const p of pickups){ if(!p.dead&&p.mesh.position.distanceTo(camera.position)<2.6)collectPickup(p); }
   if(tryOpenChest())return;
   if(!G.dragonSpawned&&Math.hypot(player.pos.x,player.pos.z)<5){
@@ -698,10 +793,12 @@ const ENEMY_TYPES={
   skeleton:{name:'Скелет-маг',col:0xb9b6a8,head:0xe8e4d6,hp:40,dmg:14,xp:42,gold:20,speed:2.0,ranged:true},
   wraith:{name:'Крижана примара',col:0x6fb0d0,head:0xbfeaff,hp:55,dmg:12,xp:48,gold:24,speed:3.3,ranged:false,frost:true},
   wolf:{name:'Вовк',col:0x6a6a6a,hp:50,dmg:10,xp:35,gold:0,speed:4.0,ranged:false,beast:true,drops:{meat:1,hide:1}},
+  troll:{name:'Гірський троль',col:0x5a6a4a,head:0x6a7a55,hp:300,dmg:26,xp:200,gold:150,speed:2.4,big:true,drops:{hide:3,bone:2,gem:1}},
 };
 function spawnEnemy(type,x,z){
   const def=ENEMY_TYPES[type]; const y=surfaceY(Math.floor(x),Math.floor(z))+1;
   const mesh=def.beast?makeBeast(def.col,{size:1.0,tail:true,legCol:0x4a4a4a,headCol:0x5a5a5a}):humanoid(def.col,def.head);
+  if(def.big)mesh.scale.setScalar(1.9);
   mesh.position.set(x,y,z); scene.add(mesh);
   const scale=1+(G.level-1)*0.08;
   enemies.push({type,name:def.name,mesh,hp:def.hp*scale,hpMax:def.hp*scale,dmg:def.dmg*scale,
@@ -844,6 +941,39 @@ function collectPickup(p){ p.dead=true; scene.remove(p.mesh);
   if(p.kind==='gold'){ G.gold+=p.amount; Audio.gold(); floatText(camera.position,'+'+p.amount+'💰','#e8c66a'); }
   else { G.hp=clamp(G.hp+40,0,G.hpMax); Audio.gold(); floatText(camera.position,'+40 ♥','#e0594b'); } updateHUD(); }
 
+/* ============================= ТОРГОВЕЦЬ ============================= */
+let trader=null;
+const BUY=[
+  {id:'health_potion',n:1,price:40},{id:'mana_potion',n:1,price:40},{id:'arrow',n:10,price:20},
+  {id:'iron',n:3,price:35},{id:'wood',n:8,price:16},{id:'iron_sword',n:1,price:130,gear:true},
+  {id:'iron_armor',n:1,price:160,gear:true},
+];
+const SELL=[
+  {id:'hide',price:8},{id:'meat',price:5},{id:'bone',price:7},{id:'feather',price:3},
+  {id:'gem',price:45},{id:'goldore',price:18},{id:'obsidian',price:12},{id:'coal',price:4},
+];
+function spawnTrader(){ const x=8,z=-3,y=surfaceY(x,z)+1;
+  const mesh=humanoid(0x3a4a6a,0xc9b79a); mesh.position.set(x,y,z);
+  const hat=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.18,0.5),M(0x2a2a3a)); hat.position.y=1.82; mesh.add(hat);
+  mesh.add(makeGlow(0xe8c66a,0.9)); scene.add(mesh);
+  trader={mesh,x,z}; }
+let tradeOpen=false;
+function toggleTrade(){ tradeOpen=!tradeOpen; const p=document.getElementById('tradePanel');
+  if(tradeOpen){ renderTrade(); p.classList.remove('hidden'); document.exitPointerLock(); }
+  else { p.classList.add('hidden'); if(G.started&&!G.over)canvas.requestPointerLock(); } }
+function renderTrade(){ document.getElementById('tradeGold').textContent=G.gold;
+  const bl=document.getElementById('buyList'); bl.innerHTML='';
+  for(const b of BUY){ const ok=G.gold>=b.price; const d=document.createElement('div'); d.className='recipe'+(ok?'':' cant');
+    d.innerHTML=`<div><div class="rn">${ITEMS[b.id].i} ${ITEMS[b.id].n}${b.n>1?' ×'+b.n:''}</div><div class="rc">💰 ${b.price}</div></div><div class="ro">🛒</div>`;
+    d.onclick=()=>{ if(G.gold<b.price){toast('Замало золота');return;} G.gold-=b.price; addItem(b.id,b.n); if(b.gear)equip(b.id);
+      Audio.gold(); renderTrade(); updateHUD(); updateResStrip(); buildHotbar(); }; bl.appendChild(d); }
+  const sl=document.getElementById('sellList'); sl.innerHTML='';
+  for(const s of SELL){ const have=itemCount(s.id); const d=document.createElement('div'); d.className='recipe'+(have>0?'':' cant');
+    d.innerHTML=`<div><div class="rn">${ITEMS[s.id].i} ${ITEMS[s.id].n} <span style="color:#bcb6a4">×${have}</span></div><div class="rc">+💰 ${s.price}</div></div><div class="ro">💱</div>`;
+    d.onclick=()=>{ if(itemCount(s.id)<=0){toast('Немає що продати');return;} takeItems({[s.id]:1}); G.gold+=s.price;
+      Audio.gold(); renderTrade(); updateHUD(); updateResStrip(); }; sl.appendChild(d); }
+}
+
 /* ============================= ЧАСТИНКИ ============================= */
 const particles=[];
 function spawnBlockParticles(x,y,z,t){ const c=BLOCKS[t]?0x999999:0x999999;
@@ -913,6 +1043,7 @@ function updateHUD(){
   document.getElementById('hpFill').style.width=clamp(G.hp/G.hpMax*100,0,100)+'%';
   document.getElementById('mpFill').style.width=clamp(G.mp/G.mpMax*100,0,100)+'%';
   document.getElementById('spFill').style.width=clamp(G.sp/G.spMax*100,0,100)+'%';
+  document.getElementById('foodFill').style.width=clamp(G.food/G.foodMax*100,0,100)+'%';
   document.getElementById('hpTxt').textContent=Math.ceil(G.hp)+'/'+G.hpMax;
   document.getElementById('lvlNum').textContent=G.level;
   document.getElementById('xpFill').style.width=(G.xp/G.xpNext*100)+'%';
@@ -938,8 +1069,9 @@ let toastT; function toast(m){ const el=document.getElementById('toast'); el.tex
 let subT; function subtitle(m){ const el=document.getElementById('subtitle'); el.textContent=m; el.style.opacity=1;
   clearTimeout(subT); subT=setTimeout(()=>el.style.opacity=0,2600); }
 function damageFlash(){ const el=document.getElementById('dmgFlash'); el.style.opacity=1; setTimeout(()=>el.style.opacity=0,120); }
-function shoutFlash(){ const el=document.getElementById('dmgFlash');
-  el.style.background='radial-gradient(transparent 48%, rgba(80,140,220,.55))'; el.style.opacity=1;
+function shoutFlash(){ shoutFlashColor('rgba(80,140,220,.55)'); }
+function shoutFlashColor(col){ const el=document.getElementById('dmgFlash');
+  el.style.background='radial-gradient(transparent 48%, '+col+')'; el.style.opacity=1;
   setTimeout(()=>{ el.style.opacity=0; setTimeout(()=>el.style.background='radial-gradient(transparent 52%, rgba(150,0,0,.6))',220); },160); }
 
 /* ============================= КВЕСТИ ============================= */
@@ -972,7 +1104,7 @@ let skillsOpen=false;
 function toggleSkills(){ skillsOpen=!skillsOpen; const p=document.getElementById('skillsPanel');
   if(skillsOpen){ renderSkills(); p.classList.remove('hidden'); document.exitPointerLock(); }
   else { p.classList.add('hidden'); if(G.started&&!G.over)canvas.requestPointerLock(); } }
-function togglePause(){ if(skillsOpen){toggleSkills();return;} if(craftOpen){toggleCraft();return;}
+function togglePause(){ if(skillsOpen){toggleSkills();return;} if(craftOpen){toggleCraft();return;} if(tradeOpen){toggleTrade();return;}
   G.paused=!G.paused; const p=document.getElementById('pauseMenu');
   if(G.paused){ p.classList.remove('hidden'); document.exitPointerLock(); } else { p.classList.add('hidden'); canvas.requestPointerLock(); } }
 
@@ -1014,9 +1146,22 @@ function maybeSpawn(dt){ spawnTimer-=dt; const alive=enemies.filter(e=>!e.dead&&
       if(G.level>=2&&r<0.35)type='draugr'; if(G.level>=3&&r<0.2)type='skeleton'; if(G.level>=4&&r<0.12)type='wraith';
       spawnEnemy(type,x,z); } } }
 
+/* ---- міні-бос ---- */
+let miniBossTimer=90, miniBossActive=false, miniBossRef=null;
+function updateMiniBoss(dt){ if(G.dragonDead)return;
+  if(miniBossActive){ if(!miniBossRef||miniBossRef.dead){ miniBossActive=false; miniBossRef=null; miniBossTimer=rand(80,120); } return; }
+  miniBossTimer-=dt;
+  if(miniBossTimer<=0&&G.level>=2){ const a=Math.random()*TAU,d=rand(16,24);
+    const x=clamp(player.pos.x+Math.cos(a)*d,-WSIZE+2,WSIZE-2),z=clamp(player.pos.z+Math.sin(a)*d,-WSIZE+2,WSIZE-2);
+    spawnEnemy('troll',x,z); miniBossRef=enemies[enemies.length-1]; miniBossActive=true;
+    Audio.roar(); toast('ГІРСЬКИЙ ТРОЛЬ НАБЛИЖАЄТЬСЯ!'); subtitle('Сильний ворог поряд — будь обережний!'); } }
+
 /* ============================= УРОН/СМЕРТЬ ============================= */
 let playerSlow=0;
 function hurtPlayer(a){ if(G.over)return; a*=(1-(G.defense||0)); G.hp-=a; damageFlash(); Audio.hurt(); updateHUD(); if(G.hp<=0)die(); }
+let dotFlash=0;
+function hurtPlayerDOT(a){ if(G.over)return; G.hp-=a*(1-(G.defense||0)*0.5); dotFlash-=a;
+  if(dotFlash<-6){ dotFlash=0; damageFlash(); } if(G.hp<=0)die(); }
 function die(){ G.over=true; document.exitPointerLock(); document.getElementById('deathPanel').classList.remove('hidden'); }
 function victory(){ G.over=true; saveGame(); document.exitPointerLock(); document.getElementById('bossbar').style.display='none';
   const t=((performance.now()-G.startTime)/1000)|0;
@@ -1123,6 +1268,7 @@ function drawMinimap(){
   mmCtx.fillStyle='rgba(40,60,40,.25)'; mmCtx.beginPath(); mmCtx.arc(MM_R,MM_R,MM_R-2,0,TAU); mmCtx.fill();
   dot(0,0,'#e8c66a',4);                                   // вівтар (центр світу)
   for(const c of chests){ if(!c.taken)dot(c.mesh.position.x,c.mesh.position.z,'#caa24a',3); }
+  if(trader)dot(trader.mesh.position.x,trader.mesh.position.z,'#5ad0ff',4);
   for(const c of critters){ if(!c.dead)dot(c.mesh.position.x,c.mesh.position.z,'#8fd06a',2); }
   for(const en of enemies){ if(en.dead)continue;
     dot(en.mesh.position.x,en.mesh.position.z,en.boss?'#ff7a3a':'#e0594b',en.boss?6:3); }
@@ -1160,10 +1306,49 @@ function updateDayNight(dt){
   skyUniforms.sunColor.value.setHex(0xfff2d6).lerp(new THREE.Color(0xff8a4a),dusk);
   scene.fog.color.copy(skyUniforms.bottom.value);
   stars.material.opacity=clamp(1-day*2.2,0,1);
+  // вплив погоди на освітлення/туман
+  if(G.weather!=='clear'){ const k=G.weather==='storm'?0.6:0.4;
+    sun.intensity*=(1-k); hemi.intensity*=(1-k*0.6); ambient.intensity*=(1-k*0.3);
+    const grey=new THREE.Color(0x4a525c);
+    skyUniforms.top.value.lerp(grey,k); skyUniforms.bottom.value.lerp(new THREE.Color(0x6a727c),k);
+    scene.fog.color.copy(skyUniforms.bottom.value); scene.fog.far=Settings.view*(G.weather==='storm'?0.55:0.78);
+    lantern.intensity=Math.max(lantern.intensity,0.6);
+  } else scene.fog.far=Settings.view;
   // годинник UI
   const hour=Math.floor(((G.time*24)+6)%24);
-  document.getElementById('clockTxt').textContent=(day>0.15?'☀️ День ':'🌙 Ніч ')+(hour<10?'0':'')+hour+':00';
+  const wIcon=G.weather==='storm'?'⛈️ Гроза':G.weather==='rain'?'🌧️ Дощ':(day>0.15?'☀️ День':'🌙 Ніч');
+  document.getElementById('clockTxt').textContent=wIcon+' '+(hour<10?'0':'')+hour+':00';
   document.getElementById('clock').firstChild.textContent='';
+}
+
+/* ============================= ПОГОДА ============================= */
+let lightningT=0;
+function updateWeatherSystem(dt){
+  G.weatherT-=dt;
+  if(G.weatherT<=0){ const r=Math.random();
+    G.weather = r<0.55?'clear' : r<0.85?'rain':'storm';
+    G.weatherT = G.weather==='clear'?rand(40,80):rand(20,45);
+    if(G.weather!=='clear')subtitle(G.weather==='storm'?'Насувається гроза…':'Починається дощ…');
+  }
+  if(G.weather!=='clear'){
+    for(let i=0;i<(G.weather==='storm'?5:3);i++){ const m=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.5,0.03),
+      new THREE.MeshBasicMaterial({color:0x9fb6d0,transparent:true,opacity:0.5}));
+      m.position.set(player.pos.x+rand(-16,16),player.pos.y+rand(7,14),player.pos.z+rand(-16,16)); scene.add(m);
+      particles.push({mesh:m,vel:new THREE.Vector3(rand(-1,1),-22,rand(-1,1)),life:0.7,grav:false}); }
+  }
+  if(G.weather==='storm'){ lightningT-=dt;
+    if(lightningT<=0){ lightningT=rand(3,8); lightningFlash(); } }
+}
+function lightningFlash(){ const el=document.getElementById('dmgFlash');
+  el.style.background='radial-gradient(rgba(255,255,255,.5), rgba(200,220,255,.25))'; el.style.opacity=1;
+  setTimeout(()=>{ el.style.opacity=0; setTimeout(()=>{ el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0;
+    el.style.background='radial-gradient(transparent 52%, rgba(150,0,0,.6))'; },80); },70); },60);
+  Audio.blip(60,0.7,'sawtooth',0.4,1.5); Audio.noise(0.6,0.3,500);
+  // удар блискавки поряд (візуальний стовп світла)
+  if(Math.random()<0.6){ const lx=player.pos.x+rand(-20,20),lz=player.pos.z+rand(-20,20),gy=surfaceY(Math.floor(lx),Math.floor(lz));
+    const bolt=new THREE.Mesh(new THREE.BoxGeometry(0.3,30,0.3),new THREE.MeshBasicMaterial({color:0xcfe0ff}));
+    bolt.position.set(lx,gy+15,lz); bolt.add(makeGlow(0xaaccff,4)); scene.add(bolt);
+    particles.push({mesh:bolt,vel:new THREE.Vector3(0,0,0),life:0.18,grav:false}); }
 }
 
 /* ============================= ХОДЬБА / КАМЕРА ============================= */
@@ -1171,8 +1356,19 @@ let walkPhase=0, saveAccum=0;
 function update(dt){
   // реген
   G.sp=clamp(G.sp+18*dt,0,G.spMax); G.mp=clamp(G.mp+8*dt,0,G.mpMax);
-  if(G.hp<G.hpMax)G.hp=clamp(G.hp+2.0*dt,0,G.hpMax);
+  G.food=clamp(G.food-0.45*dt,0,G.foodMax);
+  const fed=G.food>15;
+  if(G.hp<G.hpMax&&fed)G.hp=clamp(G.hp+2.0*dt,0,G.hpMax);
+  else if(!fed)G.hp=clamp(G.hp-0.7*dt,0,G.hpMax);          // голод шкодить
   playerSlow=Math.max(0,playerSlow-dt);
+  // лава / вогонь
+  const fb=getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y),Math.floor(player.pos.z));
+  const gb=getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y-0.2),Math.floor(player.pos.z));
+  if(fb===25||gb===25)G.onFire=Math.max(G.onFire,1.6);
+  if(G.onFire>0){ G.onFire-=dt; hurtPlayerDOT(16*dt);
+    if(Math.random()<0.5){ const m=makeGlow(0xff6622,0.5); m.position.set(camera.position.x+rand(-.4,.4),camera.position.y+rand(-.5,.3),camera.position.z+rand(-.4,.4));
+      scene.add(m); particles.push({mesh:m,vel:new THREE.Vector3(0,1.2,0),life:0.5,grav:false}); } }
+  updateWeatherSystem(dt);
 
   const running=(keys['ShiftLeft']||keys['ShiftRight'])&&G.sp>1;
   let speed=(running?7.2:4.6)*(1+0.12*PERK.swift)*(playerSlow>0?0.5:1);
@@ -1183,7 +1379,7 @@ function update(dt){
   const moving=mv.lengthSq()>0;
   if(moving)mv.normalize().multiplyScalar(speed);
   player.vel.x=mv.x; player.vel.z=mv.z;
-  if(running&&moving)G.sp=clamp(G.sp-8*dt,0,G.spMax);
+  if(running&&moving){ G.sp=clamp(G.sp-8*dt,0,G.spMax); G.food=clamp(G.food-0.4*dt,0,G.foodMax); }
   if(moving)walkPhase+=dt*(running?14:9);
 
   player.vel.y-=26*dt;
@@ -1200,7 +1396,7 @@ function update(dt){
   sky.position.copy(camera.position);
   stars.position.copy(camera.position);
 
-  maybeSpawn(dt); maybeSpawnCritters(dt); updateEnemies(dt); updateCritters(dt);
+  maybeSpawn(dt); maybeSpawnCritters(dt); updateMiniBoss(dt); updateEnemies(dt); updateCritters(dt);
   updateProjectiles(dt); updateExtras(dt); updateWeather(dt); cleanup();
   updateCompass(); updateDayNight(dt); drawMinimap(); updateEnemyBars(); updateCrosshair();
   for(const c of clouds){ c.position.x+=dt*1.2; if(c.position.x>180)c.position.x=-180; }
@@ -1221,8 +1417,8 @@ function update(dt){
 let last=0;
 function loop(now){ requestAnimationFrame(loop);
   const dt=Math.min((now-last)/1000||0,0.05); last=now;
-  if(G.started&&!G.over&&!G.paused&&!skillsOpen&&!craftOpen)update(dt);
-  renderer.render(scene,camera);
+  if(G.started&&!G.over&&!G.paused&&!skillsOpen&&!craftOpen&&!tradeOpen)update(dt);
+  if(composer)composer.render(); else renderer.render(scene,camera);
   // viewmodel поверх
   renderer.autoClear=false; renderer.clearDepth();
   if(G.started&&!G.over)renderer.render(vmScene,vmCam);
@@ -1231,7 +1427,8 @@ function loop(now){ requestAnimationFrame(loop);
 
 /* ============================= РЕСАЙЗ ============================= */
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  vmCam.aspect=innerWidth/innerHeight; vmCam.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+  vmCam.aspect=innerWidth/innerHeight; vmCam.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight);
+  if(composer)composer.setSize(innerWidth,innerHeight); });
 
 /* ============================= СТАРТ ============================= */
 function resetRun(){
@@ -1242,7 +1439,8 @@ function resetRun(){
   Object.assign(G,{started:true,over:false,paused:false,hp:100,hpMax:100,mp:100,mpMax:100,sp:100,spMax:100,
     level:1,xp:0,xpNext:100,gold:0,perks:0,slot:0,shoutReady:0,kills:0,blocksMined:0,blocksPlaced:0,
     dragonSpawned:false,dragonDead:false,startTime:performance.now(),time:0.28,
-    weapon:'iron_sword',armorItem:null,hasBow:false,defense:0});
+    weapon:'iron_sword',armorItem:null,hasBow:false,defense:0,
+    food:100,foodMax:100,onFire:0,weather:'clear',weatherT:25});
   for(const k in PERK)PERK[k]=0;
   for(const k in INV)delete INV[k];
   // стартові ресурси, щоб одразу можна було будувати
@@ -1252,6 +1450,8 @@ function resetRun(){
   playerSlow=0; spawnTimer=3; critterTimer=2; saveAccum=0;
   document.getElementById('bossbar').style.display='none';
   buildHotbar(); renderQuests(); updateHUD(); updateResStrip(); updateGear();
+  if(trader){ scene.remove(trader.mesh); trader=null; } spawnTrader();
+  miniBossTimer=90; miniBossActive=false;
   spawnEnemy('bandit',10,0); spawnEnemy('draugr',-8,6);
   spawnCritter('deer',6,-6); spawnCritter('rabbit',-5,-4);
 }
@@ -1261,6 +1461,7 @@ function applySave(sv){
   Object.assign(PERK,sv.perkLevels||{}); G.hp=G.hpMax; G.mp=G.mpMax; G.sp=G.spMax;
   if(sv.inv){ for(const k in INV)delete INV[k]; Object.assign(INV,sv.inv); }
   G.weapon=sv.weapon||'iron_sword'; G.armorItem=sv.armorItem||null; G.hasBow=!!sv.hasBow; G.defense=sv.defense||0;
+  G.foodMax=sv.foodMax||100; G.food=sv.food!=null?sv.food:100;
   buildHotbar(); renderQuests(); updateHUD(); updateResStrip(); updateGear();
 }
 function beginPlay(){ if(Audio.ctx&&Audio.ctx.state==='suspended')Audio.ctx.resume();
@@ -1308,10 +1509,11 @@ document.getElementById('closeSkills').onclick=toggleSkills;
 document.getElementById('settingsBtn').onclick=openSettings;
 document.getElementById('closeSettings').onclick=closeSettings;
 document.getElementById('closeCraft').onclick=toggleCraft;
+document.getElementById('closeTrade').onclick=toggleTrade;
 
 /* ============================= ІНІЦІАЛІЗАЦІЯ ============================= */
 function init(){
-  buildInstancedMeshes(); buildPlantMeshes(); applyAllSettings();
+  buildInstancedMeshes(); buildPlantMeshes(); setupComposer(); applyAllSettings();
   document.getElementById('loadFill').style.width='30%';
   setTimeout(()=>{
     const sv=loadSave(); const seed=sv?sv.seed:((Math.random()*1e9)|0);

@@ -49,6 +49,7 @@
     <div class="barwrap"><div class="bar"><i id="mpFill"></i></div></div>
     <div class="barwrap"><div class="bar"><i id="hpFill"></i></div><span id="hpTxt"></span></div>
     <div class="barwrap"><div class="bar"><i id="spFill"></i></div></div>
+    <div class="barwrap"><div class="bar"><i id="foodFill"></i></div></div>
   </div>
 
   <div id="clock">☀️ <span id="clockTxt">День</span></div>
@@ -89,6 +90,10 @@
       <b>P</b><span>навички</span>
       <b>C</b><span>крафт / інвентар</span>
       <b>G</b><span>стріляти з лука</span>
+      <b>V</b><span>блискавка</span>
+      <b>H</b><span>лікування</span>
+      <b>Z</b><span>ривок (Крик)</span>
+      <b>E</b><span>торговець / скрині</span>
       <b>F11</b><span>повний екран</span>
     </div>
     <p class="goal">Мета: дійди до 3 рівня, активуй вівтар у вежі (центр) і здолай дракона.</p>
@@ -113,6 +118,19 @@
       </div>
     </div>
     <button class="btn small" id="closeCraft">Закрити (C)</button>
+  </div>
+</div>
+
+<!-- ===================== Trader ===================== -->
+<div class="overlay hidden" id="tradePanel">
+  <div class="panel craft">
+    <h2>Торговець Гундар</h2>
+    <p class="sub">💰 Золото: <b id="tradeGold">0</b></p>
+    <div class="craftcols">
+      <div class="craftcol"><h3>Купити</h3><div id="buyList" class="recipelist"></div></div>
+      <div class="craftcol"><h3>Продати</h3><div id="sellList" class="recipelist"></div></div>
+    </div>
+    <button class="btn small" id="closeTrade">Піти</button>
   </div>
 </div>
 
@@ -169,6 +187,7 @@
 </div>
 
 <script src="three.min.js"></script>
+<script src="postprocessing.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
