@@ -120,7 +120,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
-renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.96;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.9;
 
 const scene=new THREE.Scene();
 scene.fog=new THREE.FogExp2(0x9fc0e0,0.0042);
@@ -213,15 +213,35 @@ function biomeAt(x,z){
 }
 
 /* ---- детальна текстура ґрунту ---- */
-function detailTex(){ const s=128,c=document.createElement('canvas'); c.width=c.height=s; const x=c.getContext('2d');
-  const img=x.createImageData(s,s),dt=img.data;
-  // субтильна варіація навколо ~0.82 (трохи затемнює й додає фактуру, без вибілювання)
-  for(let i=0;i<s*s;i++){ const n=185+Math.random()*40; dt[i*4]=dt[i*4+1]=dt[i*4+2]=n; dt[i*4+3]=255; }
-  x.putImageData(img,0,0);
-  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(60,60); return t; }
+/* ---- процедурні текстури + normal maps ---- */
+function boxblur(h,s){ const o=new Float32Array(s*s); for(let y=0;y<s;y++)for(let x=0;x<s;x++){ let a=0; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)a+=h[((y+dy+s)%s)*s+((x+dx+s)%s)]; o[y*s+x]=a/9; } return o; }
+function heightField(s,passes){ let h=new Float32Array(s*s); for(let i=0;i<s*s;i++)h[i]=Math.random(); for(let p=0;p<(passes||2);p++)h=boxblur(h,s); return h; }
+function normalTex(s,strength,passes,rep){ const h=heightField(s,passes); const c=document.createElement('canvas'); c.width=c.height=s; const x=c.getContext('2d'),img=x.createImageData(s,s),d=img.data;
+  for(let y=0;y<s;y++)for(let x2=0;x2<s;x2++){ const L=h[y*s+(x2-1+s)%s],R=h[y*s+(x2+1)%s],U=h[((y-1+s)%s)*s+x2],D=h[((y+1)%s)*s+x2];
+    let nx=-(R-L)*strength,ny=-(D-U)*strength,nz=1; const il=1/Math.hypot(nx,ny,nz); nx*=il; ny*=il; nz*=il;
+    const i=(y*s+x2)*4; d[i]=(nx*0.5+0.5)*255; d[i+1]=(ny*0.5+0.5)*255; d[i+2]=(nz*0.5+0.5)*255; d[i+3]=255; }
+  x.putImageData(img,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; if(rep)t.repeat.set(rep,rep); return t; }
+function grainTex(s,base,amt,rep){ const h=heightField(s,3); const c=document.createElement('canvas'); c.width=c.height=s; const x=c.getContext('2d'),img=x.createImageData(s,s),d=img.data; const b=new THREE.Color(base);
+  for(let i=0;i<s*s;i++){ const n=(h[i]-0.5)*amt; const r=clamp(b.r+n,0,1),g=clamp(b.g+n,0,1),bl=clamp(b.b+n,0,1); d[i*4]=r*255; d[i*4+1]=g*255; d[i*4+2]=bl*255; d[i*4+3]=255; }
+  x.putImageData(img,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.encoding=THREE.sRGBEncoding; if(rep)t.repeat.set(rep,rep); return t; }
+// спільні мапи (одна копія на всю гру)
+let GROUND_ALB,GROUND_NRM,CLOTH_NRM,BARK_ALB,BARK_NRM,LEAF_TEX,ROCK_NRM,WATER_NRM;
+function buildSharedTex(){
+  GROUND_ALB=grainTex(128,0xa8a8a0,0.18,46); GROUND_NRM=normalTex(128,1.1,2,46);
+  CLOTH_NRM=normalTex(64,1.4,1,3); ROCK_NRM=normalTex(96,3.0,1,2);
+  BARK_ALB=barkTex(); BARK_NRM=normalTex(64,2.6,1,1); BARK_NRM.repeat.set(1,3);
+  LEAF_TEX=leafTex(); WATER_NRM=normalTex(64,1.4,1,1);
+}
+function barkTex(){ const w=48,h=64,c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d');
+  for(let i=0;i<w;i++)for(let j=0;j<h;j++){ const v=0.42+Math.sin(i*0.9)*0.05+(Math.random()-0.5)*0.12; const col=new THREE.Color(v*1.1,v*0.78,v*0.5); x.fillStyle='#'+col.getHexString(); x.fillRect(i,j,1,1); }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(1,3); t.encoding=THREE.sRGBEncoding; return t; }
+function leafTex(){ const s=64,c=document.createElement('canvas'); c.width=c.height=s; const x=c.getContext('2d'); x.clearRect(0,0,s,s);
+  for(let i=0;i<40;i++){ const px=rand(8,s-8),py=rand(8,s-8),r=rand(5,11),hue=rand(95,135); x.fillStyle=`hsl(${hue},55%,${rand(28,46)}%)`; x.beginPath(); x.ellipse(px,py,r,r*0.7,rand(0,3),0,TAU); x.fill(); }
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return t; }
+function detailTex(){ return GROUND_ALB; }
 
 /* ---- кольори біомів (для вершинних кольорів) ---- */
-const C={ sand:new THREE.Color(0xcdb98a), grass:new THREE.Color(0x5f9e44), grassDry:new THREE.Color(0x9aa055),
+const C={ sand:new THREE.Color(0xc6b184), grass:new THREE.Color(0x4f9636), grassDry:new THREE.Color(0x86913f),
   rock:new THREE.Color(0x7d7468), snow:new THREE.Color(0xeef4fb), swamp:new THREE.Color(0x4a5a38),
   ash:new THREE.Color(0x423a40), meadow:new THREE.Color(0x6db84a), deep:new THREE.Color(0x355e7a) };
 const _c1=new THREE.Color(),_c2=new THREE.Color();
@@ -255,8 +275,8 @@ function buildTerrain(){
   for(let i=0;i<n;i++){ const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i); const slope=1-nrm.getY(i);
     const col=colorAt(x,z,y,slope); colors[i*3]=col.r; colors[i*3+1]=col.g; colors[i*3+2]=col.b; }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));
-  const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.96,metalness:0,
-    map:detailTex()}); mat.map.encoding=THREE.LinearEncoding;
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0,
+    map:GROUND_ALB, normalMap:GROUND_NRM, normalScale:new THREE.Vector2(0.45,0.45)});
   terrain=new THREE.Mesh(g,mat); terrain.receiveShadow=true; terrain.castShadow=false; scene.add(terrain);
 }
 
@@ -264,22 +284,23 @@ function buildTerrain(){
 let water=null, waterU=null;
 function buildWater(){
   if(water)scene.remove(water);
-  waterU={ uTime:{value:0}, uSun:{value:new THREE.Vector3()}, uShallow:{value:new THREE.Color(0x4db0c8)}, uDeep:{value:new THREE.Color(0x14506e)}, uCam:{value:new THREE.Vector3()} };
+  waterU={ uTime:{value:0}, uSun:{value:new THREE.Vector3()}, uShallow:{value:new THREE.Color(0x4db0c8)}, uDeep:{value:new THREE.Color(0x14506e)}, uCam:{value:new THREE.Vector3()}, uNorm:{value:WATER_NRM}, uSky:{value:new THREE.Color(0xbfe0ff)} };
   const mat=new THREE.ShaderMaterial({ transparent:true, uniforms:waterU,
     vertexShader:`uniform float uTime; varying vec3 vW; varying vec3 vN;
       void main(){ vec3 p=position;
         float w=sin(p.x*0.12+uTime*1.2)*0.35+cos(p.z*0.15+uTime*1.5)*0.3+sin((p.x+p.z)*0.07+uTime)*0.25;
-        p.z+=w; // площина повернута, z = висота
-        vec4 wp=modelMatrix*vec4(p,1.0); vW=wp.xyz;
+        p.z+=w; vec4 wp=modelMatrix*vec4(p,1.0); vW=wp.xyz;
         float dx=cos(p.x*0.12+uTime*1.2)*0.12*0.35; float dz=-sin(p.z*0.15+uTime*1.5)*0.15*0.3;
-        vN=normalize(vec3(-dx,1.0,-dz));
-        gl_Position=projectionMatrix*viewMatrix*wp; }`,
-    fragmentShader:`uniform vec3 uSun,uShallow,uDeep,uCam; varying vec3 vW; varying vec3 vN;
-      void main(){ vec3 V=normalize(uCam-vW); float fres=pow(1.0-max(dot(V,vN),0.0),3.0);
-        vec3 col=mix(uDeep,uShallow,clamp(fres+0.25,0.0,1.0));
-        vec3 H=normalize(normalize(uSun)+V); float spec=pow(max(dot(vN,H),0.0),120.0);
-        col+=vec3(1.0,0.96,0.85)*spec*1.4;
-        gl_FragColor=vec4(col,0.82); }`});
+        vN=normalize(vec3(-dx,1.0,-dz)); gl_Position=projectionMatrix*viewMatrix*wp; }`,
+    fragmentShader:`uniform vec3 uSun,uShallow,uDeep,uCam,uSky; uniform float uTime; uniform sampler2D uNorm; varying vec3 vW; varying vec3 vN;
+      void main(){ vec2 uv1=vW.xz*0.05+vec2(uTime*0.03,uTime*0.02); vec2 uv2=vW.xz*0.09-vec2(uTime*0.025,uTime*0.035);
+        vec3 n1=texture2D(uNorm,uv1).xyz*2.0-1.0; vec3 n2=texture2D(uNorm,uv2).xyz*2.0-1.0;
+        vec3 N=normalize(vN+vec3(n1.x+n2.x,0.0,n1.y+n2.y)*0.5);
+        vec3 V=normalize(uCam-vW); float fres=pow(1.0-max(dot(V,N),0.0),3.0);
+        vec3 col=mix(uDeep,uShallow,clamp(fres+0.22,0.0,1.0)); col=mix(col,uSky,fres*0.5);
+        vec3 H=normalize(normalize(uSun)+V); float spec=pow(max(dot(N,H),0.0),140.0);
+        col+=vec3(1.0,0.96,0.85)*spec*1.8;
+        gl_FragColor=vec4(col,0.86); }`});
   const g=new THREE.PlaneGeometry(TSIZE*1.4,TSIZE*1.4,80,80); g.rotateX(-Math.PI/2);
   water=new THREE.Mesh(g,mat); water.position.y=SEA-0.15; scene.add(water);
 }
@@ -289,22 +310,30 @@ const M=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:0
 const nodes=[];                       // дерева/каміння/руда (рубати)
 const gathers=[];                     // квіти/гриби (збір E)
 // дерево
+const barkMat=()=>new THREE.MeshStandardMaterial({map:BARK_ALB,normalMap:BARK_NRM,roughness:1});
+const foliMat=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:1});
+function leafCardMat(c){ return new THREE.MeshStandardMaterial({map:LEAF_TEX,color:c,transparent:true,alphaTest:0.4,side:THREE.DoubleSide,roughness:1}); }
+function leafCards(g,cx,cy,cz,r,n,col){ const mat=leafCardMat(col); for(let i=0;i<n;i++){ const c=new THREE.Mesh(new THREE.PlaneGeometry(r,r),mat);
+    c.position.set(cx+rand(-r*0.4,r*0.4),cy+rand(-r*0.4,r*0.4),cz+rand(-r*0.4,r*0.4)); c.rotation.set(rand(0,TAU),rand(0,TAU),rand(0,TAU)); c.castShadow=true; g.add(c); } }
 function makeTree(kind){
   const g=new THREE.Group();
-  if(kind==='pine'){ const th=rand(5,8);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.35,th,7),M(0x6b4a2c)); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
-    for(let i=0;i<4;i++){ const r=2.2-i*0.45, hc=2.0; const cn=new THREE.Mesh(new THREE.ConeGeometry(r,hc,9),M(0x2f6a40)); cn.position.y=th*0.5+i*1.2; cn.castShadow=true; g.add(cn); } }
-  else if(kind==='birch'){ const th=rand(6,8);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.22,th,7),M(0xe6e2d4)); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
-    const f=new THREE.Mesh(new THREE.IcosahedronGeometry(2.0,0),M(0x8fc24a)); f.position.y=th; f.scale.y=1.3; f.castShadow=true; g.add(f); }
-  else { const th=rand(4,6);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.45,th,7),M(0x7a5535)); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
-    for(let i=0;i<3;i++){ const f=new THREE.Mesh(new THREE.IcosahedronGeometry(rand(1.8,2.5),0),M(0x4f9e3e));
-      f.position.set(rand(-1,1),th+rand(-0.3,1),rand(-1,1)); f.castShadow=true; g.add(f); } }
+  if(kind==='pine'){ const th=rand(6,9);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.38,th,8),barkMat()); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
+    for(let i=0;i<5;i++){ const r=2.4-i*0.42; const cn=new THREE.Mesh(new THREE.ConeGeometry(r,1.9,10),foliMat(0x2f6a40)); cn.position.y=th*0.45+i*1.15; cn.castShadow=true; g.add(cn); }
+    leafCards(g,0,th*0.8,0,1.6,5,0x357a48); }
+  else if(kind==='birch'){ const th=rand(7,9);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.24,th,8),new THREE.MeshStandardMaterial({color:0xe8e4d8,normalMap:BARK_NRM,roughness:0.9})); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
+    const f=new THREE.Mesh(new THREE.IcosahedronGeometry(2.0,1),foliMat(0x8fc24a)); f.position.y=th; f.scale.y=1.25; f.castShadow=true; g.add(f);
+    leafCards(g,0,th,0,2.0,6,0x9ace5a); }
+  else { const th=rand(4.5,6.5);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.5,th,8),barkMat()); trunk.position.y=th/2; trunk.castShadow=true; g.add(trunk);
+    for(let i=0;i<3;i++){ const f=new THREE.Mesh(new THREE.IcosahedronGeometry(rand(1.9,2.6),1),foliMat(0x4f9e3e));
+      f.position.set(rand(-1,1),th+rand(-0.3,1),rand(-1,1)); f.castShadow=true; g.add(f); }
+    leafCards(g,0,th+0.4,0,2.4,8,0x5fb04a); }
   return g;
 }
-function makeRock(){ const g=new THREE.Group(); const r=rand(0.8,1.7);
-  const m=new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),M(0x7d7468,{flatShading:true,roughness:1})); m.position.y=r*0.5; m.rotation.set(rand(0,3),rand(0,3),rand(0,3)); m.castShadow=true; g.add(m); return g; }
+function makeRock(){ const g=new THREE.Group(); const r=rand(0.8,1.8);
+  const m=new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),new THREE.MeshStandardMaterial({color:0x817567,normalMap:ROCK_NRM,roughness:1,flatShading:true})); m.position.y=r*0.5; m.rotation.set(rand(0,3),rand(0,3),rand(0,3)); m.castShadow=true; g.add(m); return g; }
 function makeOre(type){ const g=makeRock();
   const col={coal:0x2a2a2a,iron:0xc89878,gem:0x4fd0e0,goldore:0xe8c24a,obsidian:0x3a2f50}[type]||0xffffff;
   for(let i=0;i<5;i++){ const cr=new THREE.Mesh(new THREE.OctahedronGeometry(rand(0.18,0.32),0),
@@ -520,17 +549,33 @@ function drinkPotion(){ if(itemCount('health_potion')>0){ takeItems({health_poti
 
 /* ============================= ІСТОТИ ============================= */
 const enemies=[],critters=[];
-function lowHumanoid(col,headCol){ const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.34,1.1,12),M(col)); body.position.y=1.0; body.castShadow=true;
-  const chest=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,10),M(col)); chest.position.y=1.4; chest.castShadow=true; g.add(chest);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.26,12,10),M(headCol||0xc9a98a)); head.position.y=1.75; head.castShadow=true;
-  const ag=new THREE.CylinderGeometry(0.09,0.09,0.6,8);
-  const la=new THREE.Mesh(ag,M(col)); la.position.set(-0.4,1.15,0); const ra=new THREE.Mesh(ag,M(col)); ra.position.set(0.4,1.15,0);
-  const lg=new THREE.CylinderGeometry(0.11,0.1,0.7,7);
-  const ll=new THREE.Mesh(lg,M(0x3a3330)); ll.position.set(-0.15,0.4,0); const rl=new THREE.Mesh(lg,M(0x3a3330)); rl.position.set(0.15,0.4,0);
-  [body,head,la,ra,ll,rl].forEach(p=>{p.castShadow=true;g.add(p);}); g.userData={limbs:{la,ra,ll,rl},body}; return g; }
+const clothMat=(c)=>new THREE.MeshStandardMaterial({color:c,normalMap:CLOTH_NRM,roughness:0.92});
+const skinMat=(c)=>new THREE.MeshStandardMaterial({color:c||0xc9a07a,roughness:0.7});
+const cyl=(a,b,h,s)=>new THREE.CylinderGeometry(a,b,h,s||8);
+function lowHumanoid(col,skin){ const g=new THREE.Group(); const cloth=clothMat(col),sk=skinMat(skin);
+  const pelvis=new THREE.Mesh(cyl(0.22,0.2,0.3,10),cloth); pelvis.position.y=0.95; g.add(pelvis);
+  const torso=new THREE.Mesh(cyl(0.2,0.27,0.62,12),cloth); torso.position.y=1.35; g.add(torso);
+  const chest=new THREE.Mesh(new THREE.SphereGeometry(0.27,14,12),cloth); chest.position.y=1.55; chest.scale.set(1,0.8,0.72); g.add(chest);
+  const neck=new THREE.Mesh(cyl(0.08,0.08,0.12,8),sk); neck.position.y=1.72; g.add(neck);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,14),sk); head.position.y=1.92; g.add(head);
+  const eyeM=new THREE.MeshStandardMaterial({color:0x16161e,roughness:0.4});
+  [-0.07,0.07].forEach(xx=>{ const e=new THREE.Mesh(new THREE.SphereGeometry(0.03,6,6),eyeM); e.position.set(xx,1.94,0.17); g.add(e); });
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.215,12,10,0,TAU,0,Math.PI*0.55),clothMat(0x2a2018)); hair.position.y=1.96; g.add(hair);
+  [-0.28,0.28].forEach(xx=>{ const s=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8),cloth); s.position.set(xx,1.6,0); g.add(s); });
+  function arm(side){ const grp=new THREE.Group(); grp.position.set(side*0.3,1.6,0);
+    const up=new THREE.Mesh(cyl(0.08,0.08,0.4,8),cloth); up.position.y=-0.22;
+    const fore=new THREE.Mesh(cyl(0.07,0.06,0.4,8),sk); fore.position.y=-0.58;
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),sk); hand.position.y=-0.8; grp.add(up,fore,hand); return grp; }
+  const la=arm(-1),ra=arm(1); g.add(la,ra);
+  function leg(side){ const grp=new THREE.Group(); grp.position.set(side*0.12,0.92,0);
+    const up=new THREE.Mesh(cyl(0.1,0.09,0.45,8),clothMat(0x3a3330)); up.position.y=-0.24;
+    const lo=new THREE.Mesh(cyl(0.08,0.07,0.42,8),clothMat(0x33302c)); lo.position.y=-0.62;
+    const boot=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.12,0.26),M(0x2a221c)); boot.position.set(0,-0.86,0.05); grp.add(up,lo,boot); return grp; }
+  const ll=leg(-1),rl=leg(1); g.add(ll,rl);
+  g.traverse(o=>{ if(o.isMesh)o.castShadow=true; });
+  g.userData={limbs:{la,ra,ll,rl},body:torso}; return g; }
 function lowBeast(col,o){ o=o||{}; const s=o.size||1; const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.32*s,0.32*s,1.1*s,10),M(col)); body.rotation.z=Math.PI/2; body.position.y=0.62*s; body.castShadow=true; g.add(body);
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.32*s,0.32*s,1.1*s,10),new THREE.MeshStandardMaterial({color:col,normalMap:CLOTH_NRM,roughness:0.92})); body.rotation.z=Math.PI/2; body.position.y=0.62*s; body.castShadow=true; g.add(body);
   const rump=new THREE.Mesh(new THREE.SphereGeometry(0.34*s,10,8),M(col)); rump.position.set(0,0.62*s,-0.5*s); g.add(rump);
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.28*s,10,8),M(o.head||col)); head.position.set(0,0.78*s,0.62*s); head.castShadow=true; g.add(head);
   const lg=new THREE.CylinderGeometry(0.08*s,0.07*s,0.5*s,6); const legs=[];
@@ -726,14 +771,14 @@ function drawMinimap(){ mmx.clearRect(0,0,160,160); mmx.fillStyle='rgba(40,60,40
 function updateDayNight(dt){ G.time=(G.time+dt/150)%1; const ang=G.time*TAU,sx=Math.cos(ang),sy=Math.sin(ang);
   sun.position.set(player.pos.x+sx*120,sy*140,player.pos.z+60); sun.target.position.copy(player.pos); sun.target.updateMatrixWorld();
   moon.position.set(player.pos.x-sx*200,-sy*200+player.pos.y,player.pos.z-50);
-  const day=clamp(sy,0,1); sun.intensity=lerp(0.05,1.25,day); hemi.intensity=lerp(0.3,0.95,day); ambient.intensity=lerp(0.16,0.32,day); moonLight.intensity=lerp(0.35,0,day); moonLight.position.copy(moon.position);
+  const day=clamp(sy,0,1); sun.intensity=lerp(0.05,1.05,day); hemi.intensity=lerp(0.28,0.8,day); ambient.intensity=lerp(0.14,0.26,day); moonLight.intensity=lerp(0.35,0,day); moonLight.position.copy(moon.position);
   lantern.intensity=lerp(1.6,0,clamp(day*1.5,0,1)); lantern.position.copy(camera.position);
   const dayTop=new THREE.Color(0x2f72c0),nightTop=new THREE.Color(0x05080f),dayBot=new THREE.Color(0xcfe6ff),nightBot=new THREE.Color(0x0f1622),dusk=new THREE.Color(0xe89a5a);
   const du=clamp(1-Math.abs(sy)*3,0,1)*clamp(sy+0.4,0,1);
   skyU.top.value.copy(nightTop).lerp(dayTop,day); skyU.bottom.value.copy(nightBot).lerp(dayBot,day).lerp(dusk,du*0.6);
   skyU.sunDir.value.set(sx,sy,0.3).normalize(); skyU.sunCol.value.setHex(0xfff2d6).lerp(new THREE.Color(0xff8a4a),du);
   scene.fog.color.copy(skyU.bottom.value); stars.material.opacity=clamp(1-day*2.2,0,1);
-  if(waterU){ waterU.uSun.value.copy(sun.position).normalize(); }
+  if(waterU){ waterU.uSun.value.copy(sun.position).normalize(); waterU.uSky.value.copy(skyU.bottom.value); }
   // погода
   G.weatherT-=dt; if(G.weatherT<=0){ const r=Math.random(); G.weather=r<0.6?'clear':r<0.85?'rain':'storm'; G.weatherT=G.weather==='clear'?rand(40,80):rand(20,45); if(G.weather!=='clear')subtitle(G.weather==='storm'?'Насувається гроза…':'Починається дощ…'); }
   if(G.weather!=='clear'){ const k=G.weather==='storm'?0.6:0.4; sun.intensity*=(1-k); hemi.intensity*=(1-k*0.5); skyU.top.value.lerp(new THREE.Color(0x4a525c),k); skyU.bottom.value.lerp(new THREE.Color(0x6a727c),k); scene.fog.color.copy(skyU.bottom.value); scene.fog.density=0.0042*(G.weather==='storm'?1.7:1.3);
@@ -813,7 +858,7 @@ sS.oninput=()=>{Settings.sens=+sS.value;syncSet();}; sV.oninput=()=>{Settings.vo
 document.getElementById('startBtn').onclick=newGame; document.getElementById('continueBtn').onclick=continueGame; document.getElementById('respawnBtn').onclick=respawn; document.getElementById('winBtn').onclick=newGame; document.getElementById('resumeBtn').onclick=togglePause; document.getElementById('quitBtn').onclick=quitToMenu; document.getElementById('closeSkills').onclick=toggleSkills; document.getElementById('settingsBtn').onclick=openSettings; document.getElementById('closeSettings').onclick=closeSettings; document.getElementById('closeCraft').onclick=toggleCraft; document.getElementById('closeTrade').onclick=toggleTrade;
 
 /* ============================= ІНІЦІАЛІЗАЦІЯ ============================= */
-function init(){ setupComposer(); applyAllSettings(); document.getElementById('loadFill').style.width='25%';
+function init(){ setupComposer(); buildSharedTex(); applyAllSettings(); document.getElementById('loadFill').style.width='25%';
   setTimeout(()=>{ const sv=loadSave(); const seed=sv?sv.seed:((Math.random()*1e9)|0); G.seed=seed; NSEED=seed|0; RNG=mulberry32(seed); generateWorld();
     document.getElementById('loadFill').style.width='80%'; buildViewmodel(); buildHotbar(); renderQuests();
     document.getElementById('continueBtn').style.display=sv?'block':'none'; document.getElementById('loadFill').style.width='100%';
