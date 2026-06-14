@@ -176,15 +176,17 @@ vmScene.add(new THREE.HemisphereLight(0xffffff,0x444444,1.1));
 const vmLight=new THREE.DirectionalLight(0xffffff,0.7); vmLight.position.set(1,2,2); vmScene.add(vmLight);
 
 /* ---- постпроцесинг: bloom ---- */
-let composer=null, bloomPass=null;
+let composer=null, bloomPass=null, fxaaPass=null;
 function setupComposer(){
   if(typeof THREE.EffectComposer!=='function'||typeof THREE.UnrealBloomPass!=='function'){ console.warn('Bloom недоступний'); return; }
   composer=new THREE.EffectComposer(renderer);
-  composer.addPass(new THREE.RenderPass(scene,camera));
-  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.65,0.55,0.78);
-  composer.addPass(bloomPass);
+  const rp=new THREE.RenderPass(scene,camera); composer.addPass(rp);
+  bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.55,0.5,0.84);
+  bloomPass.renderToScreen=true; composer.addPass(bloomPass);
   composer.setSize(innerWidth,innerHeight);
 }
+function resizeFXAA(){ if(!fxaaPass)return; const pr=renderer.getPixelRatio();
+  fxaaPass.material.uniforms.resolution.value.set(1/(innerWidth*pr),1/(innerHeight*pr)); }
 
 /* ---- освітлення ---- */
 const sun=new THREE.DirectionalLight(0xfff2d6,1.0);
@@ -258,15 +260,18 @@ function makeGlow(color,size){ const sp=new THREE.Sprite(new THREE.SpriteMateria
 
 /* ============================= ТЕКСТУРИ ============================= */
 function px(ctx,x,y,c){ ctx.fillStyle=c; ctx.fillRect(x,y,1,1); }
-function noiseTex(base,spread,size){
-  size=size||16; const c=document.createElement('canvas'); c.width=c.height=size; const ctx=c.getContext('2d');
+function noiseTex(base,spread,size,noBevel){
+  size=size||32; const c=document.createElement('canvas'); c.width=c.height=size; const ctx=c.getContext('2d');
   const b=new THREE.Color(base);
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-    const n=(Math.random()-0.5)*spread;
+    let n=(Math.random()-0.5)*spread;
+    if(!noBevel){ const e=3;                       // фаска для об'ємного вигляду
+      if(x<e||y<e)n+=0.07; if(x>=size-e||y>=size-e)n-=0.07; }
     const col=new THREE.Color(clamp(b.r+n,0,1),clamp(b.g+n,0,1),clamp(b.b+n,0,1));
     px(ctx,x,y,'#'+col.getHexString());
   }
-  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.encoding=THREE.sRGBEncoding;
+  const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.anisotropy=4; t.generateMipmaps=true; t.encoding=THREE.sRGBEncoding;
   return t;
 }
 function grassTopTex(){ const t=noiseTex(0x6fae3d,0.12); return t; }
@@ -280,7 +285,7 @@ function makeCloudTexture(){
 }
 function faceMats(side,top,bottom,opts){
   opts=opts||{};
-  const mk=tex=>{ const m=new THREE.MeshStandardMaterial({map:tex,roughness:opts.rough!=null?opts.rough:0.92,metalness:0});
+  const mk=tex=>{ const m=new THREE.MeshStandardMaterial({map:tex,roughness:opts.rough!=null?opts.rough:0.92,metalness:opts.metal||0});
     if(opts.emissive){ m.emissive=new THREE.Color(opts.emissive); m.emissiveIntensity=opts.ei||0.8; m.emissiveMap=tex; }
     if(opts.transparent){ m.transparent=true; m.opacity=opts.opacity||0.75; }
     return m; };
@@ -321,7 +326,7 @@ const BLOCKS={
   4:{name:'пісок',  mats:()=>faceMats(noiseTex(0xd6c98f,0.07),noiseTex(0xded3a0,0.07),noiseTex(0xc9bc80,0.07))},
   5:{name:'дуб',    mats:()=>faceMats(noiseTex(0x7a5d36,0.09),logTopTex(0x9a7b4f),noiseTex(0x6a4f2c,0.07))},
   6:{name:'листя',  mats:()=>faceMats(noiseTex(0x376e2d,0.13),noiseTex(0x3f7d34,0.13),noiseTex(0x2f5f27,0.13))},
-  7:{name:'вода',   mats:()=>faceMats(noiseTex(0x2f6fb0,0.05),noiseTex(0x357ec0,0.05),noiseTex(0x255f9a,0.05),{transparent:true,opacity:0.72,rough:0.2})},
+  7:{name:'вода',   mats:()=>faceMats(noiseTex(0x2f6fb0,0.05,32,true),noiseTex(0x357ec0,0.05,32,true),noiseTex(0x255f9a,0.05,32,true),{transparent:true,opacity:0.8,rough:0.08,metal:0.25})},
   8:{name:'факел',  mats:()=>faceMats(noiseTex(0xffb23a,0.1),noiseTex(0xffcf5a,0.1),noiseTex(0xff9a2a,0.1),{emissive:0xffaa33,ei:1.2})},
   9:{name:'сніг',   mats:()=>faceMats(noiseTex(0xdfe8f2,0.05),noiseTex(0xeef4fb,0.05),noiseTex(0xd0dbe8,0.05))},
   11:{name:'вугільна руда',mats:()=>{const t=oreTex(0x2a2a2a);return faceMats(t,t,t);}},
@@ -365,7 +370,8 @@ function buildInstancedMeshes(){
 }
 const _m=new THREE.Matrix4();
 function refreshInstance(t){ const im=instMeshes[t],d=instData[t];
-  for(let i=0;i<d.list.length;i++){ const p=d.list[i]; _m.makeTranslation(p[0]+0.5,p[1]+0.5,p[2]+0.5); im.setMatrixAt(i,_m); }
+  for(let i=0;i<d.list.length;i++){ const p=d.list[i];
+    _m.makeTranslation(p[0]+0.5,p[1]+0.5,p[2]+0.5); im.setMatrixAt(i,_m); }
   im.count=d.list.length; im.instanceMatrix.needsUpdate=true; }
 function addBlock(x,y,z,t,defer){ const k=key(x,y,z); if(WORLD.has(k))return;
   WORLD.set(k,t); const d=instData[t]; d.map.set(k,d.list.length); d.list.push([x,y,z]); if(!defer)refreshInstance(t); }
@@ -1284,9 +1290,9 @@ function updateDayNight(dt){
   sun.target.position.copy(player.pos); sun.target.updateMatrixWorld();
   moon.position.set(player.pos.x-sx*120,-sy*120+player.pos.y, player.pos.z-30);
   const day=clamp(sy,0,1);                          // 0 ніч .. 1 полудень
-  sun.intensity=lerp(0.05,1.15,day);
-  hemi.intensity=lerp(0.18,0.7,day);
-  ambient.intensity=lerp(0.08,0.2,day);
+  sun.intensity=lerp(0.08,1.2,day);
+  hemi.intensity=lerp(0.32,1.05,day);
+  ambient.intensity=lerp(0.16,0.38,day);
   moonLight.intensity=lerp(0.35,0,day);
   moonLight.position.copy(moon.position);
   lantern.intensity=lerp(1.7,0,clamp(day*1.5,0,1));
@@ -1428,7 +1434,7 @@ function loop(now){ requestAnimationFrame(loop);
 /* ============================= РЕСАЙЗ ============================= */
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
   vmCam.aspect=innerWidth/innerHeight; vmCam.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight);
-  if(composer)composer.setSize(innerWidth,innerHeight); });
+  if(composer){ composer.setSize(innerWidth,innerHeight); resizeFXAA(); } });
 
 /* ============================= СТАРТ ============================= */
 function resetRun(){
