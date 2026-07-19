@@ -2,10 +2,10 @@
 
 Фіксуються під час розробки; кожне можна переглянути. Формат: A# — припущення → наслідок.
 
-- **A1. Повне ТЗ відсутнє в repository.** Файла `ormilo_growth_os_technical_spec_ua.md`
-  немає; джерелом вимог слугує `docs/brief-ormilo-growth-os-ua.md` (зафіксований бриф
-  із постановки задачі). Коли повне ТЗ буде додано, розбіжності вирішуються на його
-  користь, а план оновлюється.
+- **A1. ~~Повне ТЗ відсутнє в repository~~ — ЗАКРИТО.** Повне ТЗ додано:
+  `docs/ormilo_growth_os_technical_spec_ua.md` — єдине джерело вимог. Milestone 0
+  було збудовано за брифом; при звірці розбіжності усунено (див. A16), бриф
+  переведено в архівний статус.
 - **A2. Консервативні мажорні версії.** На момент старту доступні новіші мажори
   (Next 16, Prisma 7, TypeScript 7, ESLint 10, Vitest 4). Свідомо зафіксовано
   перевірені стабільні лінійки: **TypeScript 5.9, Next 15.5, Prisma 6.19, ESLint 9,
@@ -47,3 +47,13 @@
   orders поза production) керуються окремою змінною **`APP_ENV`**
   (development | test | staging | production, дефолт development).
   `NODE_ENV` використовується лише для runtime-оптимізацій фреймворків.
+- **A16. Звірка M0 із повним ТЗ (після його додавання).** Приведено у відповідність:
+  `docker-compose.yml` перенесено в корінь (структура §5, DoD §21 M0); env-схему
+  розширено до повного переліку §24 (APP_URL, SHOPIFY_SHOP_DOMAIN/ADMIN_ACCESS_TOKEN,
+  TEXT/IMAGE/VIDEO/TTS AI provider vars, META_*, ENCRYPTION_KEY, WEBHOOK_SECRET,
+  SENTRY_DSN, AI-бюджети §18); S3-змінні перейменовано за ТЗ (`S3_BUCKET`,
+  `S3_ACCESS_KEY`, `S3_SECRET_KEY`). Свідомі відхилення від §24-шаблону:
+  (1) креденшели в дефолтах — `ormilo`/`ormilo-dev-secret`, узгоджені з
+  docker-compose.yml (у ТЗ — плейсхолдери `postgres`/`minio`); (2) додаткові змінні
+  поверх §24: `APP_ENV` (див. A15), `LOG_LEVEL`, порти health-серверів; (3)
+  `ENCRYPTION_KEY` — 64 hex (AES-256-GCM), обовʼязковий при APP_ENV=production.

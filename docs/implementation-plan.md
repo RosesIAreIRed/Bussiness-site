@@ -1,7 +1,8 @@
 # Ormilo Growth OS — план імплементації
 
-Джерело вимог: `docs/brief-ormilo-growth-os-ua.md` (повне ТЗ відсутнє — див. A1 в
-`docs/assumptions.md`). Ризики: `docs/risks.md`. Архітектура: `docs/architecture.md`.
+Джерело вимог: **`docs/ormilo_growth_os_technical_spec_ua.md`** (повне ТЗ; посилання
+виду §N — на його розділи). Історичний бриф: `docs/brief-ormilo-growth-os-ua.md`.
+Ризики: `docs/risks.md`. Архітектура: `docs/architecture.md`. Setup: `docs/setup.md`.
 
 ## Принципи виконання
 
@@ -55,69 +56,103 @@
 та міграції (крім технічної `SystemHeartbeat`), auth/RBAC, Approval Queue,
 Shopify/Meta/supplier adapters, реальні AI-провайдери, Remotion/FFmpeg/Sharp.
 
-## Milestone 1 — core domain (наступний)
+**Пост-M0 звірка з повним ТЗ** (окремий коміт, див. A16): ТЗ додано в repo,
+compose перенесено в корінь, env-схема розширена до §24, план переглянуто за §21.
 
-- Prisma-моделі: `User`, `Store`, `ProductCandidate`, `Product`, `Asset`,
-  `ApprovalTask`, `AuditLog`, `DomainEventOutbox` (+ перша міграція, seed data).
-- Auth (внутрішні користувачі) + RBAC (roles: admin, operator, viewer).
-- Approval Queue: модель, статуси (pending/approved/rejected), API, UI-список.
-- Audit log: запис усіх мутацій із actor/entity/diff.
-- Outbox pattern: доменні події з транзакційним записом; worker публікує в черги.
-- BullMQ: політика attempts/backoff/DLQ; heartbeat пише `SystemHeartbeat` у БД.
-- Basic dashboard: списки candidates/products/approvals (read-only + дії approve).
+## Milestone 1 — Core domain and UI shell (наступний; ТЗ §21 M1)
+
+- Prisma-моделі (§7): `users`, `stores` (encrypted token), `product_candidates`,
+  `products`, `assets`, `approvals`, `audit_logs` + outbox-таблиця domain events
+  (§8); перша міграція; seed data (§25).
+- Auth: single-tenant login (§20), внутрішні користувачі, RBAC (admin / operator /
+  viewer); session — server-side; секрети лише server-side (§16).
+- Approval Engine (§19): статуси PENDING / APPROVED / REJECTED / EXPIRED /
+  CANCELLED; сервіс + UI-черга.
+- Audit log: усі мутації з actor/action/entity/metadata (§7 audit_logs).
+- Repository/service pattern; domain services без залежності від Next.js (§25).
+- Outbox pattern (§8): транзакційний запис подій; worker публікує в BullMQ.
+- Dashboard shell (§11): навігація Dashboard / Research / Products / Approvals /
+  Audit / Settings зі справжніми списками (порожні стани — чесні).
+- Шифрування at rest (AES-256-GCM, `ENCRYPTION_KEY`) для store token (§16).
 - CI: job з PostgreSQL/Redis services; інтеграційні тести db-шару.
 
-**Критерій готовності:** створення candidate → approval task → approve →
-audit log + domain event в outbox → оброблений worker-ом; все під тестами.
+**Критерій готовності:** login → створення candidate (форма) → approval task →
+approve/reject → audit log + подія в outbox → оброблена worker-ом; повторна
+обробка idempotent; все під тестами.
 
-## Milestone 2 — research/scoring
+## Milestone 2 — Product intelligence (ТЗ §21 M2)
 
-- Ручний імпорт кандидата + URL-import abstraction (adapter, без скрейпінгу
-  заборонених джерел).
-- Product Intelligence Brief (mock TextGenerationProvider → structured JSON + Zod).
-- Product Score 0–100 (фактори з брифу; поріг 65; критичні red flags → reject).
-- Pricing calculator: маржа, break-even CPA, break-even ROAS.
-- Prompt versioning (таблиця prompts + версії, привʼязка до generation).
-- Compliance rules: заборонені claims (medical тощо) на рівні валідації.
+- Ручний імпорт кандидата + URL-import abstraction (без скрейпінгу заборонених
+  джерел, §2.2/§27); normalized schema (§7 product_candidates).
+- AI provider abstraction + mock TextGenerationProvider; prompt versioning
+  (§14, таблиця prompt_versions).
+- Product Brief (§14 ProductBriefSchema) → structured JSON + Zod.
+- Product Score 0–100 (ваги та штрафи §2.2; поріг 65; критичні red flags → reject).
+- Pricing calculator (§2.3): minimum viable / recommended / compare-at / bundle
+  price, break-even CPA, break-even ROAS (`1 / contribution margin ratio`).
+- Compliance checks (§15): PASS / PASS_WITH_WARNINGS / BLOCKED; BLOCKED —
+  лише admin override з коментарем в audit log.
 
-## Milestone 3 — Creative Factory
+## Milestone 3 — Creative Factory (ТЗ §21 M3)
 
-- Creative Brief → Creative Batch → Concepts (angles/hooks/texts/headlines/CTA).
-- Static templates (React → Sharp; 9:16, 4:5, 1:1; PNG/JPEG/WebP; preview;
-  asset source + license metadata).
-- Video: Remotion templates + FFmpeg (MP4 H.264, AAC; 10/15/20/30 c;
-  1080×1920, 1080×1350, 1080×1080; субтитри, voice-over через TTS interface).
-- Render jobs у render-worker (черга `render`), progress, retry, cost tracking.
-- UGC-сценарії, compliance-звіт по батчу, файлові імена та UTM-структура.
-- Approval перед export; заборона фейкових reviews/medical claims на рівні правил.
+- Creative Brief → Creative Batch → Creative Matrix (§2.1: 6 кутів × 4 hooks,
+  3 primary texts, 3 headlines, 2 CTA) → Concepts.
+- Static templates (§2.1): React/HTML → рендер через Playwright або Satori →
+  обробка Sharp; формати 9:16 / 4:5 / 1:1; PNG/JPEG/WebP; safe zones; логотип;
+  asset source + license metadata обовʼязкові.
+- Video: Remotion + FFmpeg (MP4 H.264, AAC; 10/15/20/30 c; 1080×1920,
+  1080×1350, 1080×1080; субтитри .srt; voice-over через TTS adapter).
+- Render queue у render-worker: progress, retry, cost tracking; Cost Guardrails
+  (§18): max 6 static / 3 video / 24 hooks, бюджети AI_DAILY_BUDGET_USD і
+  AI_CREATIVE_BATCH_BUDGET_USD, hard stop.
+- Compliance Guard перед render і перед export (§15); approval перед export (§19).
 
-## Milestone 4 — Shopify
+## Milestone 4 — Shopify Publisher (ТЗ §21 M4)
 
-- Adapter через GraphQL Admin API (версія з env; operations у `.graphql` файлах,
-  усі поля звірені з документацією 2026-07).
-- Store connection (encrypted tokens), product draft creation (productCreate →
-  variants bulk → media async → metafields → collections), sync, preview,
-  publish лише через approval; `userErrors` перевіряються всюди.
+- Store connection (encrypted token, §6.1); GraphQL client (versioned `.graphql`
+  files, §6.4; версія API з env; без hardcoded GIDs; cursor pagination;
+  rate limit handling; `userErrors` всюди, §12).
+- Product draft flow (§2.3): Draft → media (async, перевірка статусу) → options →
+  variants → pricing → SKU → supplier mapping → metafields → collections →
+  preview → publish ЛИШЕ через approval.
+- Webhook ingestion (§12): signature verification, event inbox (webhook_events),
+  idempotency, retry, audit.
 
-## Milestone 5 — orders/supplier
+## Milestone 5 — Orders and suppliers (ТЗ §21 M5)
 
-- Order webhooks: signature verification, event inbox, idempotency, retry, DLQ,
-  audit.
-- Order state machine (paid → routed → ordered → tracked → fulfilled + edge cases).
-- `SupplierAdapter` interface + `ManualSupplierAdapter` (готує дані, замовлення
-  вручну; у dev реальні замовлення заборонені).
-- Supplier Monitor: price/stock snapshots за розкладом, зміни → alert + approval task.
+- Order webhook → state machine (§2.5): RECEIVED … FULFILLED / CANCELLED /
+  FAILED / DEAD_LETTER; перевірки payment/address/duplicate/mapping/stock/
+  margin guard/risk flags.
+- `SupplierAdapter` interface (§2.5) + `ManualSupplierAdapter` (task з усіма
+  даними; реальне замовлення — вручну; у dev supplier orders заборонені, §16).
+- Supplier Price and Stock Monitor (§2.4): snapshots за розкладом, порівняння,
+  margin recalc, alert + approval при небезпечній зміні; історія цін.
+- Tracking workflow → Shopify fulfillment.
 
-## Milestone 6 — analytics
+## Milestone 6 — Analytics (ТЗ §21 M6)
 
-- Звʼязка креатив ↔ товар ↔ angle/hook/format ↔ (Meta IDs) ↔ spend/CTR/CPA/ROAS.
-- Contribution margin по товару/креативу.
-- Creative iteration briefs (авто-завдання на варіації переможців).
+- Shopify metrics sync; cost model (COGS, shipping, fees, refund reserve);
+  profit dashboard; contribution margin (§2.7).
+- Creative-to-product mapping; **CSV import для Meta metrics** (API — лише M7).
+- Creative Feedback Loop (§2.7): winning hook/angle/format → iteration brief;
+  автоматична активація реклами заборонена.
 
-## Milestone 7 (optional) — Meta Marketing API
+## Milestone 7 (optional) — Meta adapter (ТЗ §21 M7, §13)
 
-- Окремий adapter для власних кампаній (campaigns/ad sets/ads/insights; все Paused).
-- Окремий adapter для research-імпорту з дозволених джерел.
+- Meta account connection, insights sync, upload media, create creative,
+  create **paused** ad, approval, mapping/errors.
+- Research adapter відділений від publishing adapter (§13).
+
+## Мапа таблиць §7 → milestones
+
+| Таблиці | Milestone |
+| ------- | --------- |
+| users, stores, product_candidates, products, assets, approvals, audit_logs, outbox | M1 |
+| prompt_versions (+creative_briefs input) | M2 |
+| creative_briefs, creative_batches, creative_concepts, render_jobs | M3 |
+| product_variants, webhook_events | M4 |
+| supplier_snapshots, orders, supplier_orders | M5 |
+| metric_snapshots, automation_runs | M6 |
 
 ## Верифікація (кожен milestone)
 

@@ -3,10 +3,13 @@ import { z } from 'zod';
 const portSchema = (defaultPort: number) =>
   z.coerce.number().int().min(1).max(65535).default(defaultPort);
 
+const optionalSecret = z.string().min(1).optional();
+
 /**
- * Схема environment-змінних усієї системи.
- * Дефолти відповідають local development через infra/docker-compose.yml.
- * У production дефолти заборонені для критичних змінних (див. REQUIRED_IN_PRODUCTION).
+ * Схема environment-змінних усієї системи (ТЗ §24).
+ * Дефолти відповідають local development через docker-compose.yml.
+ * При APP_ENV=production дефолти заборонені для критичних змінних
+ * (див. REQUIRED_IN_PRODUCTION).
  */
 export const envSchema = z.object({
   /**
@@ -21,6 +24,7 @@ export const envSchema = z.object({
   APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
+  APP_URL: z.url().default('http://localhost:3000'),
   WEB_PORT: portSchema(3000),
   WORKER_HEALTH_PORT: portSchema(3001),
   RENDER_WORKER_HEALTH_PORT: portSchema(3002),
@@ -30,14 +34,46 @@ export const envSchema = z.object({
 
   S3_ENDPOINT: z.url().default('http://localhost:9000'),
   S3_REGION: z.string().min(1).default('us-east-1'),
-  S3_ACCESS_KEY_ID: z.string().min(1).default('ormilo'),
-  S3_SECRET_ACCESS_KEY: z.string().min(1).default('ormilo-dev-secret'),
-  S3_BUCKET_ASSETS: z.string().min(1).default('ormilo-assets'),
+  S3_BUCKET: z.string().min(1).default('ormilo-assets'),
+  S3_ACCESS_KEY: z.string().min(1).default('ormilo'),
+  S3_SECRET_KEY: z.string().min(1).default('ormilo-dev-secret'),
 
+  // --- Shopify (single store; підключається в Milestone 4) ---
+  SHOPIFY_SHOP_DOMAIN: optionalSecret,
+  SHOPIFY_ADMIN_ACCESS_TOKEN: optionalSecret,
   SHOPIFY_API_VERSION: z
     .string()
     .regex(/^\d{4}-(01|04|07|10)$/, 'Очікується формат Shopify API version, напр. 2026-07')
     .default('2026-07'),
+
+  // --- AI providers (обираються окремо для text/image/video/TTS, ТЗ §3.2) ---
+  TEXT_AI_PROVIDER: optionalSecret,
+  TEXT_AI_API_KEY: optionalSecret,
+  IMAGE_AI_PROVIDER: optionalSecret,
+  IMAGE_AI_API_KEY: optionalSecret,
+  VIDEO_AI_PROVIDER: optionalSecret,
+  VIDEO_AI_API_KEY: optionalSecret,
+  TTS_PROVIDER: optionalSecret,
+  TTS_API_KEY: optionalSecret,
+
+  // --- Meta Marketing API (optional milestone) ---
+  META_APP_ID: optionalSecret,
+  META_APP_SECRET: optionalSecret,
+  META_ACCESS_TOKEN: optionalSecret,
+  META_AD_ACCOUNT_ID: optionalSecret,
+
+  // --- Security / observability ---
+  /** AES-256-GCM ключ шифрування tokens/PII at rest: 64 hex-символи (32 байти). */
+  ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, '64 hex-символи (32 байти), напр. з `openssl rand -hex 32`')
+    .optional(),
+  WEBHOOK_SECRET: optionalSecret,
+  SENTRY_DSN: optionalSecret,
+
+  // --- Cost guardrails (ТЗ §18) ---
+  AI_DAILY_BUDGET_USD: z.coerce.number().positive().default(10),
+  AI_CREATIVE_BATCH_BUDGET_USD: z.coerce.number().positive().default(3),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -47,9 +83,10 @@ export const REQUIRED_IN_PRODUCTION = [
   'DATABASE_URL',
   'REDIS_URL',
   'S3_ENDPOINT',
-  'S3_ACCESS_KEY_ID',
-  'S3_SECRET_ACCESS_KEY',
-  'S3_BUCKET_ASSETS',
+  'S3_ACCESS_KEY',
+  'S3_SECRET_KEY',
+  'S3_BUCKET',
+  'ENCRYPTION_KEY',
 ] as const;
 
 /**

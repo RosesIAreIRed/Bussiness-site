@@ -1,5 +1,8 @@
 # Архітектура Ormilo Growth OS
 
+Нормативне джерело — [повне ТЗ](ormilo_growth_os_technical_spec_ua.md); цей документ
+описує, як вимоги ТЗ реалізовано в коді.
+
 ## Загальний підхід
 
 **Modular monolith** + окремі background-процеси. Один deployable web-застосунок
@@ -119,6 +122,6 @@ packages/
   templates/      формати креативів (далі — шаблони)
   test-utils/     тестові хелпери
   ui/             спільні UI-компоненти
-infra/            docker-compose для local development
-docs/             бриф, план, assumptions, ризики, архітектура
+infra/            docker/ і scripts/ (ТЗ §5; compose — у корені repo)
+docs/             ТЗ, план, setup, assumptions, ризики, архітектура
 ```

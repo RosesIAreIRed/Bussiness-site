@@ -18,7 +18,7 @@ describe('parseEnv', () => {
     expect(env.NODE_ENV).toBe('development');
     expect(env.LOG_LEVEL).toBe('info');
     expect(env.REDIS_URL).toBe('redis://localhost:6379');
-    expect(env.S3_BUCKET_ASSETS).toBe('ormilo-assets');
+    expect(env.S3_BUCKET).toBe('ormilo-assets');
   });
 
   it('трактує порожній рядок як відсутнє значення (застосовує дефолт)', () => {
@@ -51,6 +51,20 @@ describe('parseEnv', () => {
     );
   });
 
+  it('відхиляє ENCRYPTION_KEY неправильного формату', () => {
+    expect(() => parseEnv(makeTestEnv({ ENCRYPTION_KEY: 'short' }))).toThrow(EnvValidationError);
+    expect(() => parseEnv(makeTestEnv({ ENCRYPTION_KEY: 'g'.repeat(64) }))).toThrow(
+      EnvValidationError,
+    );
+  });
+
+  it('застосовує дефолтні cost guardrails (ТЗ §18/§24)', () => {
+    const env = parseEnv(makeTestEnv());
+    expect(env.AI_DAILY_BUDGET_USD).toBe(10);
+    expect(env.AI_CREATIVE_BATCH_BUDGET_USD).toBe(3);
+    expect(env.APP_URL).toBe('http://localhost:3000');
+  });
+
   it('при APP_ENV=production вимагає явні значення критичних змінних', () => {
     expect(() => parseEnv({ APP_ENV: 'production' })).toThrow(EnvValidationError);
 
@@ -59,7 +73,8 @@ describe('parseEnv', () => {
     } catch (error) {
       const message = (error as EnvValidationError).message;
       expect(message).toContain('DATABASE_URL');
-      expect(message).toContain('S3_SECRET_ACCESS_KEY');
+      expect(message).toContain('S3_SECRET_KEY');
+      expect(message).toContain('ENCRYPTION_KEY');
     }
   });
 

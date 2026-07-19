@@ -1,6 +1,6 @@
-# Local development інфраструктура Ormilo Growth OS.
-# Запуск:  pnpm infra:up   (docker compose -f infra/docker-compose.yml up -d)
-# Зупинка: pnpm infra:down
+# Local development інфраструктура Ormilo Growth OS (ТЗ §21 M0: `docker compose up`).
+# Запуск:  docker compose up -d   (або pnpm infra:up)
+# Зупинка: docker compose down    (або pnpm infra:down)
 #
 # Облікові дані нижче — ВИКЛЮЧНО для local development.
 # Staging/production використовують окремі секрети (див. docs/architecture.md).

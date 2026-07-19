@@ -6,10 +6,10 @@ Product Page Builder, Creative Factory (статика/відео/UGC), публ
 Усі небезпечні дії проходять через Approval Queue.
 
 **Архітектура:** modular monolith (Next.js) + background worker + render worker.
-Документація: [бриф/вимоги](docs/brief-ormilo-growth-os-ua.md) ·
-[план імплементації](docs/implementation-plan.md) ·
+Документація: **[повне ТЗ](docs/ormilo_growth_os_technical_spec_ua.md)** ·
+[план імплементації](docs/implementation-plan.md) · [setup](docs/setup.md) ·
 [архітектура](docs/architecture.md) · [assumptions](docs/assumptions.md) ·
-[ризики](docs/risks.md).
+[ризики](docs/risks.md) · [бриф (архів)](docs/brief-ormilo-growth-os-ua.md).
 
 > Файл `index.html` у корені — старий статичний сайт, не повʼязаний із системою
 > (див. assumption A3).
@@ -36,11 +36,13 @@ MinIO (S3) · Docker Compose. З M3: Remotion, FFmpeg, Sharp.
 ```bash
 pnpm install                 # залежності (+ prisma generate у build)
 cp .env.example .env         # конфігурація local development
-pnpm infra:up                # PostgreSQL + Redis + MinIO
+docker compose up -d         # PostgreSQL + Redis + MinIO
 pnpm db:migrate              # міграції (потрібна піднята БД)
 pnpm build                   # збірка всіх пакетів і застосунків
 pnpm dev                     # web:3000 + worker + render-worker (watch)
 ```
+
+Детальніше — у [docs/setup.md](docs/setup.md).
 
 Health-и: `http://localhost:3000/api/health` (web),
 `http://localhost:3001/health` (worker), `http://localhost:3002/health` (render-worker).
@@ -55,7 +57,7 @@ Health-и: `http://localhost:3000/api/health` (web),
 | `pnpm build` | Turbo build (libs → dist, web → .next) |
 | `pnpm format` / `format:check` | Prettier |
 | `pnpm db:generate` / `db:migrate` / `db:studio` | Prisma |
-| `pnpm infra:up` / `infra:down` | Docker Compose (infra/) |
+| `pnpm infra:up` / `infra:down` | Docker Compose (корінь repo) |
 
 ## Структура
 
@@ -74,8 +76,8 @@ packages/
   templates/      формати креативів (9:16, 4:5, 1:1; 10/15/20/30 c)
   test-utils/     тестові хелпери
   ui/             cn + UI-примітиви (база під shadcn/ui)
-infra/            docker-compose: PostgreSQL 17, Redis 7, MinIO
-docs/             бриф, план, архітектура, assumptions, ризики
+infra/            майбутні docker/ і scripts/ (compose — у корені repo)
+docs/             ТЗ, план, setup, архітектура, assumptions, ризики
 ```
 
 ## Environment

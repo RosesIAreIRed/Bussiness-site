@@ -8,6 +8,7 @@ export function makeTestEnv(overrides: Record<string, string> = {}): Record<stri
     NODE_ENV: 'test',
     APP_ENV: 'test',
     LOG_LEVEL: 'error',
+    APP_URL: 'http://localhost:3000',
     WEB_PORT: '3000',
     WORKER_HEALTH_PORT: '3001',
     RENDER_WORKER_HEALTH_PORT: '3002',
@@ -15,10 +16,12 @@ export function makeTestEnv(overrides: Record<string, string> = {}): Record<stri
     REDIS_URL: 'redis://localhost:6379/1',
     S3_ENDPOINT: 'http://localhost:9000',
     S3_REGION: 'us-east-1',
-    S3_ACCESS_KEY_ID: 'test-access',
-    S3_SECRET_ACCESS_KEY: 'test-secret',
-    S3_BUCKET_ASSETS: 'test-assets',
+    S3_BUCKET: 'test-assets',
+    S3_ACCESS_KEY: 'test-access',
+    S3_SECRET_KEY: 'test-secret',
     SHOPIFY_API_VERSION: '2026-07',
+    // 32 байти → 64 hex-символи (тестовий, не для реального використання)
+    ENCRYPTION_KEY: 'a'.repeat(64),
     ...overrides,
   };
 }

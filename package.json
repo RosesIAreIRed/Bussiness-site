@@ -19,8 +19,8 @@
     "db:generate": "pnpm --filter @ormilo/db db:generate",
     "db:migrate": "pnpm --filter @ormilo/db db:migrate",
     "db:studio": "pnpm --filter @ormilo/db db:studio",
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
-    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
     "clean": "turbo run clean"
   },
   "devDependencies": {

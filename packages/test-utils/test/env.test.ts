@@ -6,9 +6,11 @@ describe('makeTestEnv', () => {
     const env = makeTestEnv();
 
     expect(env.NODE_ENV).toBe('test');
+    expect(env.APP_ENV).toBe('test');
     expect(env.DATABASE_URL).toBeDefined();
     expect(env.REDIS_URL).toBeDefined();
-    expect(env.S3_SECRET_ACCESS_KEY).toBeDefined();
+    expect(env.S3_SECRET_KEY).toBeDefined();
+    expect(env.ENCRYPTION_KEY).toMatch(/^[0-9a-f]{64}$/i);
     expect(env.SHOPIFY_API_VERSION).toBe('2026-07');
   });
 
