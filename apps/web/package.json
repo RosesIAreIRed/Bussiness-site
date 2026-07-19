@@ -16,12 +16,14 @@
     "@ormilo/config": "workspace:*",
     "@ormilo/contracts": "workspace:*",
     "@ormilo/db": "workspace:*",
+    "@ormilo/domain": "workspace:*",
     "@ormilo/observability": "workspace:*",
     "@ormilo/ui": "workspace:*",
     "ioredis": "^5.11.1",
     "next": "15.5.20",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

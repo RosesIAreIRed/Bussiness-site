@@ -19,9 +19,9 @@
 
 | Milestone | Стан | Коментар |
 | --------- | ---- | -------- |
-| M0 — інфраструктура | ✅ виконано | цей коміт |
-| M1 — core domain | ⏳ наступний | |
-| M2 — research/scoring | 🔜 | |
+| M0 — інфраструктура | ✅ виконано | |
+| M1 — core domain + UI shell | ✅ виконано | |
+| M2 — research/scoring | ⏳ наступний | |
 | M3 — Creative Factory | 🔜 | |
 | M4 — Shopify publishing | 🔜 | |
 | M5 — orders/supplier | 🔜 | |
@@ -59,7 +59,21 @@ Shopify/Meta/supplier adapters, реальні AI-провайдери, Remotion
 **Пост-M0 звірка з повним ТЗ** (окремий коміт, див. A16): ТЗ додано в repo,
 compose перенесено в корінь, env-схема розширена до §24, план переглянуто за §21.
 
-## Milestone 1 — Core domain and UI shell (наступний; ТЗ §21 M1)
+## Milestone 1 — Core domain and UI shell (виконано; ТЗ §21 M1)
+
+**Зроблено:** Prisma-моделі §7 (users, stores, product_candidates, products, assets,
+approvals, audit_logs, outbox_events) + офлайн-міграція `m1_core_domain` + seed
+(admin + demo-кандидат); security-примітиви (scrypt-паролі, AES-256-GCM,
+HMAC-сесії) у `@ormilo/domain`; repository/service pattern + UnitOfWork на
+`$transaction`; CandidateService і ApprovalService (RBAC, idempotency, audit,
+outbox у кожній мутації); outbox-publisher у worker (retry/backoff/dead-letter);
+auth (login/logout, session cookie) і захищений UI shell (Dashboard, Research
+з формою кандидата, Approvals із approve/reject, Products, Audit, Settings);
+інтеграційні тести проти PostgreSQL (CI service) + E2E повного циклу
+«кандидат → approval → продукт → audit» (CI з БД). Разом: 87 unit-тестів,
+3 інтеграційні, 6 E2E-сценаріїв.
+
+### Початковий план M1 (для звірки)
 
 - Prisma-моделі (§7): `users`, `stores` (encrypted token), `product_candidates`,
   `products`, `assets`, `approvals`, `audit_logs` + outbox-таблиця domain events

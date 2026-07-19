@@ -4,7 +4,7 @@ type MilestoneStatus = 'done' | 'in-progress' | 'planned';
 
 const MILESTONES: ReadonlyArray<{ id: string; title: string; status: MilestoneStatus }> = [
   { id: 'M0', title: 'Інфраструктура: monorepo, Docker Compose, CI, health checks', status: 'done' },
-  { id: 'M1', title: 'Core domain: users, stores, approvals, audit, outbox, BullMQ', status: 'planned' },
+  { id: 'M1', title: 'Core domain: auth, approvals, audit, outbox, dashboard shell', status: 'done' },
   { id: 'M2', title: 'Product research, scoring, pricing calculator', status: 'planned' },
   { id: 'M3', title: 'Creative Factory: briefs, статичні та відеокреативи', status: 'planned' },
   { id: 'M4', title: 'Shopify adapter і Product Draft publishing', status: 'planned' },
@@ -51,15 +51,26 @@ export default function HomePage() {
         <p className="text-sm text-slate-600">
           Компонентні перевірки PostgreSQL і Redis доступні на health-ендпоінті:
         </p>
-        <a
-          href="/api/health"
-          className={cn(
-            'inline-flex w-fit items-center rounded-lg border border-slate-300 bg-white px-4 py-2',
-            'font-mono text-sm text-slate-900 transition-colors hover:bg-slate-100',
-          )}
-        >
-          /api/health
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/api/health"
+            className={cn(
+              'inline-flex w-fit items-center rounded-lg border border-slate-300 bg-white px-4 py-2',
+              'font-mono text-sm text-slate-900 transition-colors hover:bg-slate-100',
+            )}
+          >
+            /api/health
+          </a>
+          <a
+            href="/login"
+            className={cn(
+              'inline-flex w-fit items-center rounded-lg bg-slate-900 px-4 py-2',
+              'text-sm font-medium text-white transition-colors hover:bg-slate-700',
+            )}
+          >
+            Увійти в систему
+          </a>
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">

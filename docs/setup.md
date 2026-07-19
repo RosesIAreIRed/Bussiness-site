@@ -14,8 +14,13 @@ cp .env.example .env         # конфігурація local development (де�
 docker compose up -d         # PostgreSQL 17 + Redis 7 + MinIO (bucket створюється сам)
 pnpm db:migrate              # Prisma-міграції (потрібна піднята БД)
 pnpm build                   # збірка пакетів і застосунків
+pnpm --filter @ormilo/db db:seed   # admin-користувач + demo-кандидат
 pnpm dev                     # web:3000 + worker + render-worker у watch-режимі
 ```
+
+**Вхід у систему:** `http://localhost:3000/login` — seed створює
+`admin@ormilo.local` / `ormilo-admin-dev` (перевизначається змінними
+`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`; ці креденшели — лише для dev).
 
 Definition of Done Milestone 0 (ТЗ §21): `pnpm install` → `docker compose up` →
 `pnpm db:migrate` → `pnpm dev`, усі сервіси healthy.

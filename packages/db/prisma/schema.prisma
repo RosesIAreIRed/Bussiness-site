@@ -1,7 +1,9 @@
 // Ormilo Growth OS — Prisma schema.
-// Milestone 0: лише інфраструктура підключення (datasource + generator).
-// Доменні моделі (users, stores, products, approvals, audit, outbox)
-// додаються в Milestone 1 разом із першою міграцією.
+// Milestone 1: core domain за ТЗ §7 (users, stores, product_candidates, products,
+// assets, approvals, audit_logs) + outbox для domain events (§8).
+// Таблиці наступних milestones (creative_*, render_jobs, orders, supplier_*,
+// webhook_events, metric_snapshots, automation_runs, prompt_versions,
+// product_variants) додаються у своїх milestones — див. docs/implementation-plan.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,8 +14,274 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Технічна модель для перевірки міграційного циклу інфраструктури (M0).
-// Використовується heartbeat-механікою worker-ів починаючи з Milestone 1.
+// ---------------------------------------------------------------------------
+// Identity (ТЗ §6.1, §20 — single tenant, внутрішні користувачі)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  role         UserRole @default(OPERATOR)
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  approvalsRequested Approval[] @relation("ApprovalRequestedBy")
+  approvalsDecided   Approval[] @relation("ApprovalDecidedBy")
+
+  @@map("users")
+}
+
+model Store {
+  id                   String   @id @default(uuid())
+  name                 String
+  shopDomain           String   @unique @map("shop_domain")
+  /// AES-256-GCM ciphertext (ТЗ §16: encrypted tokens at rest); ніколи не в browser/логи.
+  encryptedAccessToken String?  @map("encrypted_access_token")
+  apiVersion           String   @map("api_version")
+  currency             String   @default("USD")
+  timezone             String   @default("UTC")
+  settingsJson         Json     @default("{}") @map("settings_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("stores")
+}
+
+// ---------------------------------------------------------------------------
+// Product research (ТЗ §2.2, §7 product_candidates; kanban §11 Research Board)
+// ---------------------------------------------------------------------------
+
+enum CandidateSourceType {
+  MANUAL
+  URL
+  CSV
+  EXTENSION
+  API
+  OTHER
+}
+
+enum CandidateStatus {
+  INBOX
+  ANALYZING
+  WATCH
+  TEST
+  REJECTED
+  WINNER
+}
+
+enum CandidateDecision {
+  REJECT
+  WATCH
+  TEST
+  WINNER
+}
+
+model ProductCandidate {
+  id                 String              @id @default(uuid())
+  sourceType         CandidateSourceType @map("source_type")
+  sourceUrl          String?             @map("source_url")
+  supplierUrl        String?             @map("supplier_url")
+  storeUrl           String?             @map("store_url")
+  adLibraryUrl       String?             @map("ad_library_url")
+  title              String
+  rawDataJson        Json                @default("{}") @map("raw_data_json")
+  normalizedDataJson Json?               @map("normalized_data_json")
+  score              Int?
+  decision           CandidateDecision?
+  redFlagsJson       Json                @default("[]") @map("red_flags_json")
+  status             CandidateStatus     @default(INBOX)
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@index([status, createdAt])
+  @@map("product_candidates")
+}
+
+// ---------------------------------------------------------------------------
+// Products (ТЗ §7 products; Shopify-поля заповнюються в M4)
+// ---------------------------------------------------------------------------
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Product {
+  id                  String        @id @default(uuid())
+  storeId             String?       @map("store_id")
+  candidateId         String?       @map("candidate_id")
+  shopifyProductGid   String?       @unique @map("shopify_product_gid")
+  title               String
+  handle              String?
+  status              ProductStatus @default(DRAFT)
+  pricingJson         Json          @default("{}") @map("pricing_json")
+  contentJson         Json          @default("{}") @map("content_json")
+  supplierMappingJson Json          @default("{}") @map("supplier_mapping_json")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  store     Store?            @relation(fields: [storeId], references: [id])
+  candidate ProductCandidate? @relation(fields: [candidateId], references: [id])
+  assets    Asset[]
+
+  @@index([status, createdAt])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// Assets (ТЗ §7 assets; ліцензія і джерело обовʼязкові — §2.1)
+// ---------------------------------------------------------------------------
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum AssetSource {
+  UPLOAD
+  GENERATED
+  STOCK
+  SUPPLIER
+}
+
+model Asset {
+  id           String      @id @default(uuid())
+  productId    String?     @map("product_id")
+  /// FK на creative_concepts зʼявиться в Milestone 3 (таблиці ще немає).
+  conceptId    String?     @map("concept_id")
+  type         AssetType
+  source       AssetSource
+  sourceUrl    String?     @map("source_url")
+  storageKey   String      @unique @map("storage_key")
+  mimeType     String      @map("mime_type")
+  width        Int?
+  height       Int?
+  durationMs   Int?        @map("duration_ms")
+  checksum     String?
+  licenseJson  Json?       @map("license_json")
+  metadataJson Json        @default("{}") @map("metadata_json")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([productId, createdAt])
+  @@map("assets")
+}
+
+// ---------------------------------------------------------------------------
+// Approval Engine (ТЗ §19)
+// ---------------------------------------------------------------------------
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ApprovalAction {
+  CREATE_PRODUCT_FROM_CANDIDATE
+  PUBLISH_PRODUCT
+  PUSH_PRICE_CHANGE
+  DISABLE_VARIANT
+  CREATE_SUPPLIER_ORDER
+  ACTIVATE_META_AD
+  USE_HIGH_RISK_CLAIM
+  SEND_REFUND_PROMISE
+  USE_THIRD_PARTY_MEDIA
+}
+
+model Approval {
+  id          String         @id @default(uuid())
+  entityType  String         @map("entity_type")
+  entityId    String         @map("entity_id")
+  action      ApprovalAction
+  status      ApprovalStatus @default(PENDING)
+  requestedBy String?        @map("requested_by")
+  decidedBy   String?        @map("decided_by")
+  comment     String?
+  payloadJson Json           @default("{}") @map("payload_json")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  decidedAt   DateTime?      @map("decided_at")
+
+  requester User? @relation("ApprovalRequestedBy", fields: [requestedBy], references: [id])
+  decider   User? @relation("ApprovalDecidedBy", fields: [decidedBy], references: [id])
+
+  @@index([status, createdAt])
+  @@index([entityType, entityId])
+  @@map("approvals")
+}
+
+// ---------------------------------------------------------------------------
+// Audit log (ТЗ §7 audit_logs, §16)
+// ---------------------------------------------------------------------------
+
+enum ActorType {
+  USER
+  SYSTEM
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  actorType    ActorType @map("actor_type")
+  actorId      String?   @map("actor_id")
+  action       String
+  entityType   String    @map("entity_type")
+  entityId     String?   @map("entity_id")
+  metadataJson Json      @default("{}") @map("metadata_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Outbox для domain events (ТЗ §8): транзакційний запис, публікація worker-ом
+// ---------------------------------------------------------------------------
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+model OutboxEvent {
+  id            String       @id @default(uuid())
+  type          String
+  payloadJson   Json         @map("payload_json")
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  /// Момент, з якого подія доступна до публікації (exponential backoff при retry).
+  availableAt   DateTime     @default(now()) @map("available_at")
+  publishedAt   DateTime?    @map("published_at")
+  lastErrorJson Json?        @map("last_error_json")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([status, availableAt])
+  @@map("outbox_events")
+}
+
+// ---------------------------------------------------------------------------
+// Технічна модель M0: смок міграційного циклу і heartbeat-механіки worker-ів.
+// ---------------------------------------------------------------------------
+
 model SystemHeartbeat {
   id         String   @id @default(uuid())
   source     String

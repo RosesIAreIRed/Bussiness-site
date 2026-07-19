@@ -63,11 +63,16 @@ export const envSchema = z.object({
   META_AD_ACCOUNT_ID: optionalSecret,
 
   // --- Security / observability ---
-  /** AES-256-GCM ключ шифрування tokens/PII at rest: 64 hex-символи (32 байти). */
+  /**
+   * AES-256-GCM ключ шифрування tokens/PII at rest і підпису сесій:
+   * 64 hex-символи (32 байти). Дефолт — ЛИШЕ для local development
+   * (публічний у repo); при APP_ENV=production обовʼязково явне значення
+   * (REQUIRED_IN_PRODUCTION).
+   */
   ENCRYPTION_KEY: z
     .string()
     .regex(/^[0-9a-f]{64}$/i, '64 hex-символи (32 байти), напр. з `openssl rand -hex 32`')
-    .optional(),
+    .default('ad2f1c3f6a3f4b21a7c9d5e8f0b4a6c1d3e5f7a9b1c3d5e7f9a0b2c4d6e8f0a1'),
   WEBHOOK_SECRET: optionalSecret,
   SENTRY_DSN: optionalSecret,
 

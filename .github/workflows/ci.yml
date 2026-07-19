@@ -9,6 +9,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DATABASE_URL: postgresql://ormilo:ormilo@localhost:5432/ormilo
+  REDIS_URL: redis://localhost:6379
+
 jobs:
   quality:
     name: Lint • Typecheck • Test • Build
@@ -39,11 +43,73 @@ jobs:
       - name: Build
         run: pnpm build
 
+  integration:
+    name: Integration (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ormilo
+          POSTGRES_PASSWORD: ormilo
+          POSTGRES_DB: ormilo
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd "pg_isready -U ormilo -d ormilo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm --filter @ormilo/db exec prisma migrate deploy
+
+      - name: Integration tests
+        run: pnpm test:integration
+        env:
+          INTEGRATION: '1'
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: quality
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ormilo
+          POSTGRES_PASSWORD: ormilo
+          POSTGRES_DB: ormilo
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd "pg_isready -U ormilo -d ormilo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - '6379:6379'
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -60,8 +126,19 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @ormilo/web exec playwright install --with-deps chromium
 
+      - name: Build workspace (потрібно для seed і e2e)
+        run: pnpm build
+
+      - name: Apply migrations
+        run: pnpm --filter @ormilo/db exec prisma migrate deploy
+
+      - name: Seed database
+        run: pnpm --filter @ormilo/db db:seed
+
       - name: Run E2E tests
         run: pnpm test:e2e
+        env:
+          E2E_DB: '1'
 
       - name: Upload Playwright report
         if: failure()

@@ -4,5 +4,12 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src", "test", "vitest.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "test-integration",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "prisma/seed.ts"
+  ]
 }

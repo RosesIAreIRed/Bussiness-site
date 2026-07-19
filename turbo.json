@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "daemon": false,
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -16,10 +17,26 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL", "INTEGRATION", "CI"]
+    },
     "e2e": {
       "dependsOn": ["build"],
       "cache": false,
-      "passThroughEnv": ["PW_CHROMIUM_EXECUTABLE", "E2E_PORT", "CI", "PLAYWRIGHT_*"]
+      "passThroughEnv": [
+        "PW_CHROMIUM_EXECUTABLE",
+        "E2E_PORT",
+        "CI",
+        "PLAYWRIGHT_*",
+        "E2E_DB",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "APP_ENV",
+        "SEED_ADMIN_EMAIL",
+        "SEED_ADMIN_PASSWORD"
+      ]
     },
     "dev": {
       "cache": false,

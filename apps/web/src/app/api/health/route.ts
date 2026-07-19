@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Redis } from 'ioredis';
-import { loadEnv } from '@ormilo/config';
 import { buildHealthReport, checkDatabaseHealth, runComponentCheck } from '@ormilo/observability';
-import { getPrismaClient } from '../../../lib/server/clients';
+import { getAppContext } from '../../../lib/server/context';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -39,10 +38,10 @@ function checkRedisOnce(redisUrl: string) {
 }
 
 export async function GET(): Promise<NextResponse> {
-  const env = loadEnv();
+  const { env, prisma } = getAppContext();
 
   const [database, redis] = await Promise.all([
-    checkDatabaseHealth(getPrismaClient(env), 900),
+    checkDatabaseHealth(prisma, 900),
     checkRedisOnce(env.REDIS_URL),
   ]);
 

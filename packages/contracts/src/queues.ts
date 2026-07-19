@@ -11,6 +11,10 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 /** Назви job-типів. Формат: `<домен>.<дія>`. */
 export const JOBS = {
   systemHeartbeat: 'system.heartbeat',
+  /** Періодична публікація outbox-подій у черги (ТЗ §8). */
+  outboxPublish: 'outbox.publish',
+  /** Доставлена доменна подія (payload — DomainEventEnvelope). */
+  domainEvent: 'system.domain-event',
 } as const;
 
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
