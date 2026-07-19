@@ -1,0 +1,70 @@
+# Local development інфраструктура Ormilo Growth OS.
+# Запуск:  pnpm infra:up   (docker compose -f infra/docker-compose.yml up -d)
+# Зупинка: pnpm infra:down
+#
+# Облікові дані нижче — ВИКЛЮЧНО для local development.
+# Staging/production використовують окремі секрети (див. docs/architecture.md).
+
+name: ormilo-growth-os
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ormilo
+      POSTGRES_PASSWORD: ormilo
+      POSTGRES_DB: ormilo
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ormilo -d ormilo']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ormilo
+      MINIO_ROOT_PASSWORD: ormilo-dev-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - miniodata:/data
+
+  # Одноразова ініціалізація: створює bucket для asset-ів і завершується.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        until mc alias set local http://minio:9000 ormilo ormilo-dev-secret; do sleep 1; done
+        mc mb --ignore-existing local/ormilo-assets
+        echo "MinIO bucket ormilo-assets готовий"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

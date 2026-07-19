@@ -1,0 +1,30 @@
+{
+  "name": "@ormilo/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ormilo/config": "workspace:*",
+    "@ormilo/contracts": "workspace:*",
+    "@ormilo/domain": "workspace:*",
+    "@ormilo/observability": "workspace:*",
+    "bullmq": "^5.80.9",
+    "ioredis": "^5.11.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "^4.23.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

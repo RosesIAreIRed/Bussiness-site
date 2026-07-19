@@ -1,0 +1,35 @@
+{
+  "name": "ormilo-growth-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ormilo Growth OS — внутрішня платформа автоматизації Shopify-дропшипінгу (modular monolith + background workers)",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @ormilo/db db:generate",
+    "db:migrate": "pnpm --filter @ormilo/db db:migrate",
+    "db:studio": "pnpm --filter @ormilo/db db:studio",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.5",
+    "turbo": "^2.10.5",
+    "typescript-eslint": "^8.64.0"
+  }
+}

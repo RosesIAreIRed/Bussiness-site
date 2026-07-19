@@ -1,0 +1,24 @@
+// Ormilo Growth OS — Prisma schema.
+// Milestone 0: лише інфраструктура підключення (datasource + generator).
+// Доменні моделі (users, stores, products, approvals, audit, outbox)
+// додаються в Milestone 1 разом із першою міграцією.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Технічна модель для перевірки міграційного циклу інфраструктури (M0).
+// Використовується heartbeat-механікою worker-ів починаючи з Milestone 1.
+model SystemHeartbeat {
+  id         String   @id @default(uuid())
+  source     String
+  occurredAt DateTime @default(now())
+
+  @@index([source, occurredAt])
+  @@map("system_heartbeats")
+}

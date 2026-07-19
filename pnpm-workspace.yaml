@@ -1,0 +1,19 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalog:
+  typescript: "5.9.3"
+  zod: "^4.4.3"
+  vitest: "^3.2.7"
+  "@types/node": "^22.10.2"
+
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "prisma"
+  - "esbuild"
+  - "@tailwindcss/oxide"
+  - "sharp"
+  - "unrs-resolver"
+  - "msgpackr-extract"

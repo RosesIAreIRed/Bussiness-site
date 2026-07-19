@@ -1,0 +1,4 @@
+@import 'tailwindcss';
+
+/* Tailwind сканує класи workspace-пакетів із їхніх джерел. */
+@source '../../../../packages/ui/src';
