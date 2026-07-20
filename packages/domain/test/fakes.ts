@@ -1,17 +1,16 @@
 import type { DomainEvent } from '../src/events.js';
-import type { TxRepos, UnitOfWork } from '../src/core/repositories.js';
+import type { CandidateWithData, TxRepos, UnitOfWork } from '../src/core/repositories.js';
 import type {
   Approval,
   ApprovalStatus,
   AuditEntry,
   CandidateStatus,
   Product,
-  ProductCandidate,
 } from '../src/core/types.js';
 
 /** In-memory реалізація TxRepos для unit-тестів сервісів (без БД). */
 export interface FakeState {
-  candidates: ProductCandidate[];
+  candidates: CandidateWithData[];
   products: Product[];
   approvals: Approval[];
   audit: AuditEntry[];
@@ -26,7 +25,7 @@ export function createFakeRepos(state: FakeState): TxRepos {
   return {
     candidates: {
       create: async (data) => {
-        const candidate: ProductCandidate = {
+        const candidate: CandidateWithData = {
           id: crypto.randomUUID(),
           sourceType: data.sourceType,
           title: data.title,
@@ -38,17 +37,24 @@ export function createFakeRepos(state: FakeState): TxRepos {
           decision: null,
           status: 'INBOX',
           createdAt: new Date(),
+          rawData: data.rawData ?? {},
+          normalizedData: null,
         };
         state.candidates.push(candidate);
         return candidate;
       },
       findById: async (id) => state.candidates.find((c) => c.id === id) ?? null,
+      findByIdWithData: async (id) => state.candidates.find((c) => c.id === id) ?? null,
       list: async (params) =>
         state.candidates.filter((c) => !params?.status || c.status === params.status),
       update: async (id, patch) => {
         const candidate = state.candidates.find((c) => c.id === id);
         if (!candidate) throw new Error(`fake: candidate ${id} not found`);
-        Object.assign(candidate, patch);
+        const { normalizedData, ...rest } = patch;
+        Object.assign(candidate, rest);
+        if (normalizedData !== undefined) {
+          candidate.normalizedData = normalizedData;
+        }
         return candidate;
       },
       countByStatus: async () => {

@@ -31,13 +31,33 @@ function candidateRepository(db: Db): CandidateRepository {
         },
       }),
     findById: (id) => db.productCandidate.findUnique({ where: { id } }),
+    findByIdWithData: async (id) => {
+      const row = await db.productCandidate.findUnique({ where: { id } });
+      if (!row) return null;
+      return {
+        ...row,
+        rawData: (row.rawDataJson ?? {}) as Record<string, unknown>,
+        normalizedData: row.normalizedDataJson,
+      };
+    },
     list: (params) =>
       db.productCandidate.findMany({
         where: params?.status ? { status: params.status } : undefined,
         orderBy: { createdAt: 'desc' },
         take: params?.take ?? DEFAULT_LIST_TAKE,
       }),
-    update: (id, patch) => db.productCandidate.update({ where: { id }, data: patch }),
+    update: (id, patch) => {
+      const { normalizedData, ...rest } = patch;
+      return db.productCandidate.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(normalizedData !== undefined
+            ? { normalizedDataJson: normalizedData as Prisma.InputJsonValue }
+            : {}),
+        },
+      });
+    },
     countByStatus: async () => {
       const groups = await db.productCandidate.groupBy({
         by: ['status'],

@@ -22,6 +22,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ormilo/domain": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

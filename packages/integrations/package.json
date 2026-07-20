@@ -25,6 +25,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@ormilo/contracts": "workspace:*",
+    "@ormilo/templates": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

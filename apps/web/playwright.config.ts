@@ -27,10 +27,26 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: `pnpm exec next start --port ${PORT}`,
-    url: `http://127.0.0.1:${PORT}/`,
-    timeout: 120_000,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `pnpm exec next start --port ${PORT}`,
+      url: `http://127.0.0.1:${PORT}/`,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+    },
+    // Worker потрібен для сценаріїв із фоновою обробкою (аналіз кандидатів);
+    // стартує лише в повних прогонах із БД (E2E_DB=1): його health вимагає
+    // живих Redis і PostgreSQL.
+    ...(process.env.E2E_DB === '1'
+      ? [
+          {
+            command: 'node ../worker/dist/index.js',
+            url: `http://127.0.0.1:${process.env.WORKER_HEALTH_PORT ?? 3151}/health`,
+            timeout: 60_000,
+            reuseExistingServer: !process.env.CI,
+            env: { WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT ?? '3151' },
+          },
+        ]
+      : []),
+  ],
 });

@@ -20,8 +20,9 @@ Product Page Builder, Creative Factory (статика/відео/UGC), публ
 | --------- | ---- |
 | M0 — інфраструктура (monorepo, Docker Compose, CI, health) | ✅ |
 | M1 — core domain (auth, approvals, audit, outbox, UI shell) | ✅ |
-| M2 — product intelligence (scoring, pricing, mock AI) | ⏳ наступний |
-| M3–M6 — креативи → Shopify → orders → analytics | 🔜 |
+| M2 — product intelligence (scoring, pricing, compliance, mock AI) | ✅ |
+| M3 — Creative Factory (статика/відео, render queue) | ⏳ наступний |
+| M4–M6 — Shopify → orders → analytics | 🔜 |
 | M7 — Meta Marketing API (optional) | 🔜 |
 
 ## Стек

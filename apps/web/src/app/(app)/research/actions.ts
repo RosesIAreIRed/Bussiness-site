@@ -40,6 +40,35 @@ export async function createCandidateAction(formData: FormData): Promise<void> {
   redirect('/research');
 }
 
+export async function requestAnalysisAction(formData: FormData): Promise<void> {
+  const session = await requireSession();
+  if (session.role === 'VIEWER') {
+    redirect('/research?error=forbidden');
+  }
+
+  const parsedId = z.uuid().safeParse(formData.get('candidateId'));
+  if (!parsedId.success) {
+    redirect('/research?error=validation');
+  }
+
+  let failed = false;
+  try {
+    await getAppContext().analysisService.requestAnalysis(parsedId.data, {
+      userId: session.userId,
+      role: session.role,
+    });
+  } catch {
+    failed = true;
+  }
+
+  if (failed) {
+    redirect('/research?error=server');
+  }
+  revalidatePath('/research');
+  revalidatePath('/dashboard');
+  redirect('/research?analyzing=1');
+}
+
 export async function requestProductApprovalAction(formData: FormData): Promise<void> {
   const session = await requireSession();
   if (session.role === 'VIEWER') {

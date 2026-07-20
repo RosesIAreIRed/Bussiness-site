@@ -14,7 +14,7 @@ export const domainEventEnvelopeSchema = z.object({
 
 export type DomainEventEnvelope = z.infer<typeof domainEventEnvelopeSchema>;
 
-/** Схеми payload подій Milestone 1 (перелік §8 розширюється по milestones). */
+/** Схеми payload подій (перелік §8 розширюється по milestones). */
 export const domainEventPayloadSchemas = {
   ProductCandidateImported: z.object({ candidateId: z.uuid() }),
   ApprovalRequested: z.object({ approvalId: z.uuid() }),
@@ -25,6 +25,12 @@ export const domainEventPayloadSchemas = {
   ProductCreatedFromCandidate: z.object({
     productId: z.uuid(),
     candidateId: z.uuid(),
+  }),
+  ProductAnalysisRequested: z.object({ candidateId: z.uuid() }),
+  ProductAnalysisCompleted: z.object({
+    candidateId: z.uuid(),
+    score: z.number().int().min(0).max(100),
+    decision: z.enum(['REJECT', 'WATCH', 'TEST']),
   }),
 } as const;
 

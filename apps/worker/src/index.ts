@@ -1,14 +1,22 @@
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { loadEnv } from '@ormilo/config';
-import { JOBS, QUEUES } from '@ormilo/contracts';
-import { createPrismaClient, publishOutboxBatch } from '@ormilo/db';
+import {
+  JOBS,
+  QUEUES,
+  candidateAssessmentSchema,
+  productBriefSchema,
+} from '@ormilo/contracts';
+import { createPrismaClient, createUnitOfWork, publishOutboxBatch } from '@ormilo/db';
+import { CandidateAnalysisService, type AnalysisDeps } from '@ormilo/domain';
+import { createTextGenerationProvider } from '@ormilo/integrations';
 import {
   checkDatabaseHealth,
   checkRedisHealth,
   createLogger,
   startHealthServer,
 } from '@ormilo/observability';
+import { getResearchPrompt } from '@ormilo/templates';
 import { createSystemJobProcessor } from './processor.js';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -47,6 +55,17 @@ async function main(): Promise<void> {
     logger.warn({ err: error.message }, 'queue error');
   });
 
+  // Product Intelligence (M2): аналіз кандидатів на стороні worker-а.
+  const analysisService = new CandidateAnalysisService(createUnitOfWork(prisma));
+  const analysisDeps: AnalysisDeps = {
+    textGenerator: createTextGenerationProvider({ provider: env.TEXT_AI_PROVIDER }),
+    prompts: {
+      brief: getResearchPrompt('product-brief'),
+      assessment: getResearchPrompt('candidate-assessment'),
+    },
+    schemas: { brief: productBriefSchema, assessment: candidateAssessmentSchema },
+  };
+
   const processor = createSystemJobProcessor({
     logger,
     publishOutbox: () =>
@@ -62,6 +81,9 @@ async function main(): Promise<void> {
           });
         },
       }),
+    handleAnalysisRequested: async (candidateId) => {
+      await analysisService.runAnalysis(candidateId, analysisDeps);
+    },
   });
 
   const worker = new Worker(QUEUES.system, (job) => processor(job), {

@@ -25,6 +25,8 @@ export interface SystemProcessorDeps {
   logger: Logger;
   /** Публікує чергову партію outbox-подій (реалізація — @ormilo/db). */
   publishOutbox: () => Promise<{ published: number; failed: number }>;
+  /** Обробник ProductAnalysisRequested (M2): запускає аналіз кандидата. */
+  handleAnalysisRequested?: (candidateId: string) => Promise<void>;
 }
 
 /**
@@ -59,6 +61,14 @@ export function createSystemJobProcessor(deps: SystemProcessorDeps) {
       if (isKnownDomainEventType(envelope.type)) {
         // Невалідний payload відомої події — помилка продюсера, job має впасти.
         const payload = domainEventPayloadSchemas[envelope.type].parse(envelope.payload);
+
+        if (envelope.type === 'ProductAnalysisRequested' && deps.handleAnalysisRequested) {
+          const { candidateId } = payload as { candidateId: string };
+          await deps.handleAnalysisRequested(candidateId);
+          logger.info({ eventId: envelope.id, candidateId }, 'аналіз кандидата виконано');
+          return { processedAt: new Date().toISOString() };
+        }
+
         logger.info(
           { eventId: envelope.id, eventType: envelope.type, payload },
           'domain event оброблено',

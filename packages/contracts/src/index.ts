@@ -30,3 +30,16 @@ export {
   type CreateCandidateInput,
   type DecideApprovalInput,
 } from './api.js';
+
+export {
+  productBriefSchema,
+  candidateAssessmentSchema,
+  scoreRatingsSchema,
+  penaltySeveritiesSchema,
+  normalizedCandidateSchema,
+  complianceReportSchema,
+  priceEconomicsSchema,
+  pricingResultSchema,
+  productScoreSchema,
+  analysisResultSchema,
+} from './research.js';

@@ -17,3 +17,14 @@ export type {
 } from './ai/providers.js';
 
 export { AiOutputValidationError, parseStructuredOutput } from './ai/validation.js';
+
+export {
+  MockTextGenerationProvider,
+  MockResponderMissingError,
+  type MockResponder,
+} from './ai/mock-text-provider.js';
+
+export {
+  createResearchMockResponders,
+  createTextGenerationProvider,
+} from './ai/research-mock.js';

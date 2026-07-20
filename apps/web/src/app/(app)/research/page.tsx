@@ -2,8 +2,13 @@ import type { ProductCandidate } from '@ormilo/domain';
 import { requireSession } from '../../../lib/server/auth';
 import { getAppContext } from '../../../lib/server/context';
 import { DataError, EmptyState, PageHeader, Panel, formatDateTime } from '../../../components/page-shell';
+import Link from 'next/link';
 import { StatusBadge } from '../../../components/status-badge';
-import { createCandidateAction, requestProductApprovalAction } from './actions';
+import {
+  createCandidateAction,
+  requestAnalysisAction,
+  requestProductApprovalAction,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +25,10 @@ const inputClasses =
 export default async function ResearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; requested?: string }>;
+  searchParams: Promise<{ error?: string; requested?: string; analyzing?: string }>;
 }) {
   const session = await requireSession();
-  const { error, requested } = await searchParams;
+  const { error, requested, analyzing } = await searchParams;
   const canWrite = session.role !== 'VIEWER';
 
   let candidates: ProductCandidate[] | null = null;
@@ -44,6 +49,11 @@ export default async function ResearchPage({
       {requested ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Approval-запит створено — див. вкладку Approvals.
+        </p>
+      ) : null}
+      {analyzing ? (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          Аналіз поставлено в чергу — worker обробить його за кілька секунд, оновіть сторінку.
         </p>
       ) : null}
 
@@ -104,6 +114,7 @@ export default async function ResearchPage({
                   <th className="py-2 pr-4">Назва</th>
                   <th className="py-2 pr-4">Статус</th>
                   <th className="py-2 pr-4">Score</th>
+                  <th className="py-2 pr-4">Рішення</th>
                   <th className="py-2 pr-4">Створено</th>
                   {canWrite ? <th className="py-2">Дії</th> : null}
                 </tr>
@@ -112,13 +123,18 @@ export default async function ResearchPage({
                 {candidates.map((candidate) => (
                   <tr key={candidate.id}>
                     <td className="py-2.5 pr-4">
-                      <div className="font-medium">{candidate.title}</div>
+                      <Link
+                        href={`/research/${candidate.id}`}
+                        className="font-medium underline-offset-2 hover:underline"
+                      >
+                        {candidate.title}
+                      </Link>
                       {candidate.sourceUrl ? (
                         <a
                           href={candidate.sourceUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-slate-500 underline"
+                          className="block text-xs text-slate-500 underline"
                         >
                           джерело
                         </a>
@@ -128,24 +144,40 @@ export default async function ResearchPage({
                       <StatusBadge value={candidate.status} />
                     </td>
                     <td className="py-2.5 pr-4 tabular-nums">{candidate.score ?? '—'}</td>
+                    <td className="py-2.5 pr-4 text-xs text-slate-500">
+                      {candidate.decision ?? '—'}
+                    </td>
                     <td className="py-2.5 pr-4 font-mono text-xs text-slate-500">
                       {formatDateTime(candidate.createdAt)}
                     </td>
                     {canWrite ? (
                       <td className="py-2.5">
-                        {candidate.status === 'INBOX' || candidate.status === 'ANALYZING' ? (
-                          <form action={requestProductApprovalAction}>
-                            <input type="hidden" name="candidateId" value={candidate.id} />
-                            <button
-                              type="submit"
-                              className="rounded-md border border-slate-300 px-3 py-1 text-xs transition-colors hover:bg-slate-100"
-                            >
-                              Approval на продукт
-                            </button>
-                          </form>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {candidate.status !== 'ANALYZING' ? (
+                            <form action={requestAnalysisAction}>
+                              <input type="hidden" name="candidateId" value={candidate.id} />
+                              <button
+                                type="submit"
+                                className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-slate-700"
+                              >
+                                Аналізувати
+                              </button>
+                            </form>
+                          ) : (
+                            <span className="text-xs text-amber-600">аналізується…</span>
+                          )}
+                          {candidate.status !== 'ANALYZING' && candidate.status !== 'REJECTED' ? (
+                            <form action={requestProductApprovalAction}>
+                              <input type="hidden" name="candidateId" value={candidate.id} />
+                              <button
+                                type="submit"
+                                className="rounded-md border border-slate-300 px-3 py-1 text-xs transition-colors hover:bg-slate-100"
+                              >
+                                Approval на продукт
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
                       </td>
                     ) : null}
                   </tr>

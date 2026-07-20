@@ -11,9 +11,16 @@ const silentLogger = createLogger({
   destination: { write: () => undefined },
 });
 
-function makeProcessor(publishOutbox = vi.fn().mockResolvedValue({ published: 0, failed: 0 })) {
+function makeProcessor(
+  publishOutbox = vi.fn().mockResolvedValue({ published: 0, failed: 0 }),
+  handleAnalysisRequested?: (candidateId: string) => Promise<void>,
+) {
   return {
-    processor: createSystemJobProcessor({ logger: silentLogger, publishOutbox }),
+    processor: createSystemJobProcessor({
+      logger: silentLogger,
+      publishOutbox,
+      handleAnalysisRequested,
+    }),
     publishOutbox,
   };
 }
@@ -67,6 +74,31 @@ describe('createSystemJobProcessor', () => {
 
     await expect(processor({ name: JOBS.domainEvent, data: envelope })).rejects.toBeInstanceOf(
       ZodError,
+    );
+  });
+
+  it('ProductAnalysisRequested делегується analysis-обробнику', async () => {
+    const handled: string[] = [];
+    const { processor } = makeProcessor(undefined, async (candidateId) => {
+      handled.push(candidateId);
+    });
+    const candidateId = crypto.randomUUID();
+    const envelope = createDomainEvent('ProductAnalysisRequested', { candidateId });
+
+    await processor({ name: JOBS.domainEvent, data: envelope });
+    expect(handled).toEqual([candidateId]);
+  });
+
+  it('помилка analysis-обробника валить job (retry через BullMQ)', async () => {
+    const { processor } = makeProcessor(undefined, async () => {
+      throw new Error('провайдер недоступний');
+    });
+    const envelope = createDomainEvent('ProductAnalysisRequested', {
+      candidateId: crypto.randomUUID(),
+    });
+
+    await expect(processor({ name: JOBS.domainEvent, data: envelope })).rejects.toThrow(
+      'провайдер недоступний',
     );
   });
 

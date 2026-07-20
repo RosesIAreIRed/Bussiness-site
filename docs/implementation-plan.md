@@ -21,8 +21,8 @@
 | --------- | ---- | -------- |
 | M0 — інфраструктура | ✅ виконано | |
 | M1 — core domain + UI shell | ✅ виконано | |
-| M2 — research/scoring | ⏳ наступний | |
-| M3 — Creative Factory | 🔜 | |
+| M2 — product intelligence | ✅ виконано | |
+| M3 — Creative Factory | ⏳ наступний | |
 | M4 — Shopify publishing | 🔜 | |
 | M5 — orders/supplier | 🔜 | |
 | M6 — analytics | 🔜 | |
@@ -94,7 +94,24 @@ auth (login/logout, session cookie) і захищений UI shell (Dashboard, R
 approve/reject → audit log + подія в outbox → оброблена worker-ом; повторна
 обробка idempotent; все під тестами.
 
-## Milestone 2 — Product intelligence (ТЗ §21 M2)
+## Milestone 2 — Product intelligence (виконано; ТЗ §21 M2)
+
+**Зроблено:** доменний research-модуль — нормалізація raw-даних (§2.2),
+scoring 0–100 із вагами/штрафами/критичними red flags (§2.2: <65 → REJECT,
+65–74 → WATCH, ≥75 → TEST), pricing-калькулятор (§2.3: min viable /
+recommended / compare-at / bundle, break-even CPA і ROAS = 1/CM ratio),
+Compliance Guard (§15: PASS / PASS_WITH_WARNINGS / BLOCKED; BLOCKED піднімає
+unrealisticClaims до критичного); Zod-контракти AI-outputs (§14
+ProductBriefSchema + assessment + analysisResult); versioned prompts
+`product-brief@v1` і `candidate-assessment@v1` у @ormilo/templates (§14);
+MockTextGenerationProvider із фабрикою за TEXT_AI_PROVIDER (§26 п.7);
+CandidateAnalysisService: requestAnalysis (UI, швидка транзакція + подія) →
+runAnalysis у worker-і через ProductAnalysisRequested; UI: кнопка «Аналізувати»
+і детальна сторінка кандидата (score breakdown, pricing, compliance, brief,
+assessment). 125 unit-тестів; інтеграційний тест pipeline проти PostgreSQL;
+E2E з реальним worker-ом (другий webServer у Playwright).
+
+### Початковий план M2 (для звірки)
 
 - Ручний імпорт кандидата + URL-import abstraction (без скрейпінгу заборонених
   джерел, §2.2/§27); normalized schema (§7 product_candidates).

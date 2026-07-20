@@ -57,3 +57,12 @@
   docker-compose.yml (у ТЗ — плейсхолдери `postgres`/`minio`); (2) додаткові змінні
   поверх §24: `APP_ENV` (див. A15), `LOG_LEVEL`, порти health-серверів; (3)
   `ENCRYPTION_KEY` — 64 hex (AES-256-GCM), обовʼязковий при APP_ENV=production.
+- **A17. Prompt versioning (M2) — versioned templates у коді.** ТЗ §14 дозволяє
+  «у базі або у versioned templates»; обрано код (`@ormilo/templates/prompts`,
+  маркер `[prompt:<key>@v<n>]`, append-only версії, використана версія
+  фіксується в результаті аналізу). Таблиця `prompt_versions` (§7) зʼявиться,
+  коли знадобиться редагування промптів через UI.
+- **A18. Пороги авто-рішення аналізу (M2).** ТЗ задає лише «score ≥ 65 і без
+  критичних red flags → допуск до тесту»; конкретизовано: <65 або критичний
+  red flag (policy/copyright severity ≥ 0.8) → REJECT; 65–74 → WATCH;
+  ≥75 → TEST. Створення продукту все одно проходить ручний approval (§19).

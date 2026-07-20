@@ -20,9 +20,16 @@ import type {
  * inversion). Реалізації живуть у @ormilo/db; domain знає лише контракти.
  */
 
+/** Кандидат разом із raw/normalized JSON-даними (для аналізу та detail-сторінки). */
+export type CandidateWithData = ProductCandidate & {
+  rawData: Record<string, unknown>;
+  normalizedData: unknown;
+};
+
 export interface CandidateRepository {
   create(data: NewCandidate): Promise<ProductCandidate>;
   findById(id: string): Promise<ProductCandidate | null>;
+  findByIdWithData(id: string): Promise<CandidateWithData | null>;
   list(params?: { status?: CandidateStatus; take?: number }): Promise<ProductCandidate[]>;
   update(
     id: string,
@@ -30,6 +37,7 @@ export interface CandidateRepository {
       status: CandidateStatus;
       decision: CandidateDecision;
       score: number;
+      normalizedData: Record<string, unknown>;
     }>,
   ): Promise<ProductCandidate>;
   countByStatus(): Promise<Partial<Record<CandidateStatus, number>>>;

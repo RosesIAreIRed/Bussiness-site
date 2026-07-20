@@ -17,7 +17,9 @@
     "@ormilo/contracts": "workspace:*",
     "@ormilo/db": "workspace:*",
     "@ormilo/domain": "workspace:*",
+    "@ormilo/integrations": "workspace:*",
     "@ormilo/observability": "workspace:*",
+    "@ormilo/templates": "workspace:*",
     "bullmq": "^5.80.9",
     "ioredis": "^5.11.1",
     "zod": "catalog:"

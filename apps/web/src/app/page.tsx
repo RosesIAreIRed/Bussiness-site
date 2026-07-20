@@ -5,7 +5,7 @@ type MilestoneStatus = 'done' | 'in-progress' | 'planned';
 const MILESTONES: ReadonlyArray<{ id: string; title: string; status: MilestoneStatus }> = [
   { id: 'M0', title: 'Інфраструктура: monorepo, Docker Compose, CI, health checks', status: 'done' },
   { id: 'M1', title: 'Core domain: auth, approvals, audit, outbox, dashboard shell', status: 'done' },
-  { id: 'M2', title: 'Product research, scoring, pricing calculator', status: 'planned' },
+  { id: 'M2', title: 'Product intelligence: scoring, pricing, compliance, mock AI', status: 'done' },
   { id: 'M3', title: 'Creative Factory: briefs, статичні та відеокреативи', status: 'planned' },
   { id: 'M4', title: 'Shopify adapter і Product Draft publishing', status: 'planned' },
   { id: 'M5', title: 'Order routing, ManualSupplierAdapter, supplier monitor', status: 'planned' },

@@ -56,6 +56,7 @@ export type {
   ApprovalRepository,
   AuditLogRepository,
   CandidateRepository,
+  CandidateWithData,
   OutboxRepository,
   ProductRepository,
   TxRepos,
@@ -79,3 +80,58 @@ export {
   OUTBOX_BASE_DELAY_MS,
   OUTBOX_MAX_DELAY_MS,
 } from './core/outbox.js';
+
+// --- Product Intelligence (M2, ТЗ §2.2/§2.3/§14/§15) ---
+export type {
+  AnalysisResult,
+  AutoDecision,
+  CandidateAssessment,
+  ComplianceFinding,
+  ComplianceReport,
+  ComplianceSeverity,
+  ComplianceStatus,
+  NormalizedCandidate,
+  PenaltySeverities,
+  PriceEconomics,
+  PricingAssumptions,
+  PricingResult,
+  ProductBrief,
+  ProductScore,
+  ScoreFactorResult,
+  ScorePenaltyResult,
+  ScoreRatings,
+  UsedPrompt,
+} from './research/types.js';
+
+export { coerceNumber, normalizeCandidateData } from './research/normalize.js';
+
+export {
+  computeProductScore,
+  adLongevityScore,
+  creativeVariationsScore,
+  grossMarginScore,
+  SCORE_WEIGHTS,
+  SCORE_PENALTIES,
+  DECISION_THRESHOLDS,
+  CRITICAL_SEVERITY,
+  type ScoreDerivedInputs,
+} from './research/scoring.js';
+
+export {
+  computePricing,
+  evaluatePriceEconomics,
+  charmPrice,
+  PRICING_DEFAULTS,
+  PricingError,
+  type PricingInput,
+} from './research/pricing.js';
+
+export { checkCompliance, COMPLIANCE_RULES, type ComplianceInput } from './research/compliance.js';
+
+export {
+  CandidateAnalysisService,
+  type AnalysisDeps,
+  type AnalysisPrompt,
+  type SchemaLike,
+  type StructuredTextGenerator,
+} from './research/analysis-service.js';

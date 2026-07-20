@@ -8,6 +8,7 @@ import {
 } from '@ormilo/db';
 import {
   ApprovalService,
+  CandidateAnalysisService,
   CandidateService,
   type TxRepos,
   type UserRepository,
@@ -26,6 +27,7 @@ export interface AppContext {
   users: UserRepository;
   candidateService: CandidateService;
   approvalService: ApprovalService;
+  analysisService: CandidateAnalysisService;
 }
 
 const globalCache = globalThis as unknown as { __ormiloContext?: AppContext };
@@ -43,6 +45,7 @@ export function getAppContext(): AppContext {
       users: createUserRepository(prisma),
       candidateService: new CandidateService(uow),
       approvalService: new ApprovalService(uow),
+      analysisService: new CandidateAnalysisService(uow),
     };
   }
   return globalCache.__ormiloContext;
